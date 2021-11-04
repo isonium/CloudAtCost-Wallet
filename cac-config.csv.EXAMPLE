@@ -1,0 +1,4 @@
+username,"<email>"
+password,"<password>"
+auth_2fa,"<shared-secret>"
+run_mode,"Automatic"
