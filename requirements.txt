@@ -1,4 +1,4 @@
-beautifulsoup4=4.10.0=pyh06a4308_0
-lxml=4.6.3=pypi_0
-pyotp=2.6.0=pypi_0
-twill=3.0=pypi_0
+beautifulsoup4==4.10.0
+lxml==4.6.3
+pyotp==2.6.0
+twill==3.0
