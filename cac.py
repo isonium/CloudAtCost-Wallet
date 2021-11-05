@@ -8,12 +8,14 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
-from time import time, localtime, gmtime, strftime, strptime, mktime, sleep
+from time import time, localtime, strftime, strptime, mktime, sleep
 
 import csv
 import re
 
-from twill.commands import browser, log, go, fv, submit, save_html, reset_browser, load_cookies, save_cookies, getinput, getpassword
+from twill.commands import browser, log, go, fv, submit, save_html, reset_browser, load_cookies, save_cookies, getinput
+
+from getpass import getpass as getpassword
 
 import pyotp
 
@@ -30,7 +32,7 @@ ltime = localtime(time())
 datetime = strftime("%Y-%m-%d %H-%M", ltime)
 
 # Filenames
-configFile = "cac-config.csv"
+configFile = "cac-config.csv1"
 cookieFile = "cac-cookie.txt"
 htmlFile = "Transactions "+datetime+".html"
 csvFile = "Transactions "+datetime+".csv"
@@ -248,8 +250,9 @@ print("Total Transactions  =", totalTransactions)
 print("")
 print("Total BTC Deposited =", round(totalBTCdeposited,8))
 print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
+print("")
 print("Total BTC Mined     =", round(totalBTCmined,8))
-
 print("")
 for miner in sorted(minersBTCmined.keys()):
     print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
+
