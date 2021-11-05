@@ -32,7 +32,7 @@ ltime = localtime(time())
 datetime = strftime("%Y-%m-%d %H-%M", ltime)
 
 # Filenames
-configFile = "cac-config.csv1"
+configFile = "cac-config.csv"
 cookieFile = "cac-cookie.txt"
 htmlFile = "Transactions "+datetime+".html"
 csvFile = "Transactions "+datetime+".csv"
