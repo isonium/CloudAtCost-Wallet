@@ -31,12 +31,6 @@ transactionURL = baseURL+"transaction"
 ltime = localtime(time())
 datetime = strftime("%Y-%m-%d %H-%M", ltime)
 
-# Filenames
-configFile = "cac-config.csv"
-cookieFile = "cac-cookie.txt"
-htmlFile = "Transactions "+datetime+".html"
-csvFile = "Transactions "+datetime+".csv"
-
 # Credentials
 username = ""
 password = ""
@@ -46,7 +40,15 @@ run_mode = "Interactive"
 # Config
 useCookies = False
 saveHTML = False
+silentMode = False
 addDateTime = True
+
+# Filenames
+configFile = "cac-config.csv"
+cookieFile = "cac-cookie.txt"
+htmlFile = "Transactions "+datetime+".html"
+csvFile = "Transactions "+datetime+".csv"
+
 
 
 # Load configFile, if available
@@ -68,7 +70,11 @@ try:
                     saveHTML = True
                 else:
                     saveHTML = False
-
+            elif lines[0] == 'silenced':
+                if lines[1] == 'True':
+                    silentMode = True
+                else:
+                    silentMode = False
 except:
     pass
 
@@ -106,12 +112,13 @@ while browser.url != baseURL or browser.code != 200:
     # Check for retry failure...
     if retries > 3 and (browser.url!=baseURL or browser.code!=200):
         assert False, "Retry max exceeded!"
-    elif retries > 0:
+    elif not silentMode and retries > 0:
         print("Retrying...")
         print(browser.url, "==>", browser.code)
 
     if browser.url == None:
-        print("Accessing", baseURL)
+        if not silentMode:
+            print("Accessing", baseURL)
         go(baseURL)
         
     if browser.url == loginURL:
@@ -124,13 +131,15 @@ while browser.url != baseURL or browser.code != 200:
         if interactive:
             username = ""
             password = ""
-        else:
+        elif not silentMode:
             print("Logging In...")
         submit("0")
         if browser.code != 200 or browser.url==loginURL:
-            print("Login Failed!")
+            if not silentMode:
+                print("Login Failed!")
             if not interactive:
-                print("Retrying in 30 seconds...")
+                if not silentMode:
+                   print("Retrying in 30 seconds...")
                 sleep(30)
 
     if browser.url == auth_2faURL:
@@ -142,16 +151,17 @@ while browser.url != baseURL or browser.code != 200:
         fv("authCheck", "authCode", authCode)
         if interactive:
             authCode = ""
-        else:
+        elif not silentMode:
             print("Generating 2FA Code...")
         submit("0")
 
         # check if code expired
         if browser.code == 422:
-            print("2FA Failed!")
+            if not silentMode:
+                print("2FA Failed!")
             if not interactive:
                 wait = [1,30,31,31][retries]
-                if wait > 2:
+                if not silentMode and wait > 2:
                     print("Retrying in", wait, "seconds...")
                 sleep(wait)
         
@@ -163,15 +173,18 @@ while browser.url != baseURL or browser.code != 200:
 #print("Loading Wallet...")
 #go(walletURL)
 
-print("Loading Transactions...")
+if not silentMode:
+    print("Loading Transactions...")
 go(transactionURL)
 
 if saveHTML:
-    print("Saving HTML...")
+    if not silentMode:
+        print("Saving HTML...")
     save_html(htmlFile)
 
 if not interactive or useCookies:
-    print("Saving Cookies...")
+    if not silentMode:
+        print("Saving Cookies...")
     save_cookies(cookieFile)
 
 # Parse HTML
@@ -240,19 +253,25 @@ for link in soup.find_all("a")[::-1]:
             
 transactions = transactions[::-1]
 
+if not silentMode:
+    print("Saving '"+csvFile+"'")
+    
 with open(csvFile, 'w') as f:
     f.write("SID, Transaction, Date, Type, Miner ID, Amount, Currency\n")
     for transaction in transactions:
         f.write(re.sub("'",'',str(transaction)[1:-1])+"\n")
 
-print("")
-print("Total Transactions  =", totalTransactions)
-print("")
-print("Total BTC Deposited =", round(totalBTCdeposited,8))
-print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
-print("")
-print("Total BTC Mined     =", round(totalBTCmined,8))
-print("")
-for miner in sorted(minersBTCmined.keys()):
-    print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
+if not silentMode:
+    print("")
+    print("Total Transactions  =", totalTransactions)
+    print("")
+    print("Total BTC Deposited =", round(totalBTCdeposited,8))
+    print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
+    print("")
+    print("Total BTC Mined     =", round(totalBTCmined,8))
+    print("")
+    for miner in sorted(minersBTCmined.keys()):
+        print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
 
+
+        
