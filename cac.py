@@ -155,9 +155,9 @@ while browser.url != baseURL or browser.code != 200:
                     print("Retrying in", wait, "seconds...")
                 sleep(wait)
         
-        # Needs better verification via HTML
-        if browser.code == 502:
-            assert False, "Website down for maintence!"
+    # Needs better verification via HTML
+    if browser.code == 502:
+        assert False, "Website down for maintence!"
 
  
 #print("Loading Wallet...")
