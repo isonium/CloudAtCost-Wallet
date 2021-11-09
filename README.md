@@ -5,4 +5,4 @@ This project allows you to log into your CloadAtCost Wallet and create a .CSV of
 
 Note on Privacy: Login credentials are only sent to https://wallet.cloudatcost.com/... and no data is sent to or collected by anyone else.
 
-Note on swivel.run: CloudAtClost.com and Swivel.run appear to use the same software.  Renaming cac.py to swivel.py might allow you to export from swivel.  So far this is untested.
+Note on swivel.run: CloudAtClost.com and Swivel.run appear to use the same software.  Renaming cac.py to swivel.py might allow you to export from swivel.  The config file must be renamed to swi-config.csv as well.  So far this is untested.
