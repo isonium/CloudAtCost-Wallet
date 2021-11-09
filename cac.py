@@ -22,7 +22,7 @@ import pyotp
 from bs4 import BeautifulSoup
 
 # CloudAtCost URLs
-baseURL = "https://wallet.cloudatcost.com/"
+baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
 loginURL = baseURL+"login"
 auth_2faURL = baseURL+"auth"
 walletURL = baseURL+"wallet"
@@ -46,10 +46,9 @@ addDateTime = True
 # Filenames
 configFile = "cac-config.csv"
 cookieFile = "cac-cookie.txt"
-htmlFile = "Transactions "+datetime+".html"
+summaryHtmlFile = "Summary "+datetime+".html"
+transactionHtmlFile = "Transactions "+datetime+".html"
 csvFile = "Transactions "+datetime+".csv"
-
-
 
 # Load configFile, if available
 try:
@@ -121,7 +120,7 @@ while browser.url != baseURL or browser.code != 200:
             print("Accessing", baseURL)
         go(baseURL)
         
-    if browser.url == loginURL:
+    if browser.code == 200 and browser.url == loginURL:
         assert browser.forms != [], "Login Form Missing!"
         if interactive:
             username = getinput("Username: ")
@@ -142,7 +141,7 @@ while browser.url != baseURL or browser.code != 200:
                    print("Retrying in 30 seconds...")
                 sleep(30)
 
-    if browser.url == auth_2faURL:
+    if browser.code == 200 and browser.url == auth_2faURL:
         assert browser.forms != [], "2FA Form Missing!"
         if interactive:
             authCode = getinput("2FA Code: ")
@@ -172,6 +171,10 @@ while browser.url != baseURL or browser.code != 200:
  
 #print("Loading Wallet...")
 #go(walletURL)
+if saveHTML:
+    if not silentMode:
+        print(f"Saving HTML", summaryHtmlFile)
+    save_html(summaryHtmlFile)
 
 if not silentMode:
     print("Loading Transactions...")
@@ -179,8 +182,8 @@ go(transactionURL)
 
 if saveHTML:
     if not silentMode:
-        print("Saving HTML...")
-    save_html(htmlFile)
+        print(f"Saving HTML", transactionHtmlFile)
+    save_html(transactionHtmlFile)
 
 if not interactive or useCookies:
     if not silentMode:
@@ -231,15 +234,15 @@ for link in soup.find_all("a")[::-1]:
             transaction_amount_type=line3[1]
             
             if transaction_type == "Withdraw":
-                totalBTCwithdrawn += float(line3[0])
-            if len(line1)==3:
-                totalBTCmined += float(line3[0])
+                totalBTCwithdrawn += float(transaction_amount)
+            elif len(line1)==3: # Miner Deposit
+                totalBTCmined += float(transaction_amount)
                 try:
-                    minersBTCmined[miner_id] += float(line3[0])
+                    minersBTCmined[miner_id] += float(transaction_amount)
                 except:
-                    minersBTCmined[miner_id] = float(line3[0])
-            elif len(line1)==2:
-                totalBTCdeposited += float(line3[0])
+                    minersBTCmined[miner_id] = float(transaction_amount)
+            elif len(line1)==2: # BTC deposit
+                totalBTCdeposited += float(transaction_amount)
             
             transaction=[]
             transaction.append(transaction_sid)
