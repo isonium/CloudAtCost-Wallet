@@ -8,6 +8,8 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
+import os
+
 from time import time, localtime, strftime, strptime, mktime, sleep
 
 import csv
@@ -21,8 +23,14 @@ import pyotp
 
 from bs4 import BeautifulSoup
 
-# CloudAtCost URLs
-baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
+pythonScriptName = os.path.basename(__file__)
+
+# CloudAtCost.com URLs or Swivel.run
+if pythonScriptName == "swivel.py":
+    baseURL = "https://wallet.swivel.run/"
+else:
+    baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
+
 loginURL = baseURL+"login"
 auth_2faURL = baseURL+"auth"
 walletURL = baseURL+"wallet"
