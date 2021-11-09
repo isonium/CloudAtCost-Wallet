@@ -28,8 +28,10 @@ pythonScriptName = os.path.basename(__file__)
 # CloudAtCost.com URLs or Swivel.run
 if pythonScriptName == "swivel.py":
     baseURL = "https://wallet.swivel.run/"
+    prefix = "swi"
 else:
     baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
+    prefix = "cac"
 
 loginURL = baseURL+"login"
 auth_2faURL = baseURL+"auth"
@@ -52,8 +54,8 @@ silentMode = False
 addDateTime = True
 
 # Filenames
-configFile = "cac-config.csv"
-cookieFile = "cac-cookie.txt"
+configFile = prefix+"-config.csv"
+cookieFile = prefix+"-cookie.txt"
 summaryHtmlFile = "Summary "+datetime+".html"
 transactionHtmlFile = "Transactions "+datetime+".html"
 csvFile = "Transactions "+datetime+".csv"
