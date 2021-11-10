@@ -183,7 +183,7 @@ while browser.url != baseURL or browser.code != 200:
 #go(walletURL)
 if saveHTML:
     if not silentMode:
-        print(f"Saving HTML", summaryHtmlFile)
+        print("Saving HTML", summaryHtmlFile)
     save_html(summaryHtmlFile)
 
 if not silentMode:
@@ -192,7 +192,7 @@ go(transactionURL)
 
 if saveHTML:
     if not silentMode:
-        print(f"Saving HTML", transactionHtmlFile)
+        print("Saving HTML", transactionHtmlFile)
     save_html(transactionHtmlFile)
 
 if not interactive or useCookies:
@@ -266,25 +266,30 @@ for link in soup.find_all("a")[::-1]:
             
 transactions = transactions[::-1]
 
-if not silentMode:
-    print("Saving '"+csvFile+"'")
-    
-with open(csvFile, 'w') as f:
-    f.write("SID, Transaction, Date, Type, Miner ID, Amount, Currency\n")
-    for transaction in transactions:
-        f.write(re.sub("'",'',str(transaction)[1:-1])+"\n")
 
-if not silentMode:
-    print("")
-    print("Total Transactions  =", totalTransactions)
-    print("")
-    print("Total BTC Deposited =", round(totalBTCdeposited,8))
-    print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
-    print("")
-    print("Total BTC Mined     =", round(totalBTCmined,8))
-    print("")
-    for miner in sorted(minersBTCmined.keys()):
-        print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
+if totalTransactions > 0:
+    if not silentMode:
+        print("Saving '"+csvFile+"'")
+
+    with open(csvFile, 'w') as f:
+        f.write("SID, Transaction, Date, Type, Miner ID, Amount, Currency\n")
+        for transaction in transactions:
+            f.write(re.sub("'", '', str(transaction)[1:-1])+"\n")
+
+    if not silentMode:
+        print("")
+        print("Total Transactions  =", totalTransactions)
+        print("")
+        print("Total BTC Deposited =", round(totalBTCdeposited,8))
+        print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
+        print("")
+        print("Total BTC Mined     =", round(totalBTCmined,8))
+        print("")
+        for miner in sorted(minersBTCmined.keys()):
+            print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
+elif not silentMode:
+    print("No Transactions!")
+    
 
 
         
