@@ -15,7 +15,8 @@ from time import time, localtime, strftime, strptime, mktime, sleep
 import csv
 import re
 
-from twill.commands import browser, log, go, fv, submit, save_html, reset_browser, load_cookies, save_cookies, getinput
+from twill.commands import reset_browser, log, go, fv, submit, save_html
+from twill.commands import browser, load_cookies, save_cookies, getinput
 
 from getpass import getpass as getpassword
 
@@ -23,7 +24,7 @@ import pyotp
 
 from bs4 import BeautifulSoup
 
-pythonScriptName = os.path.basename(__file__)
+pythonScriptName = os.path.basename(__file__).lower()
 
 # CloudAtCost.com URLs or Swivel.run
 if pythonScriptName == "swivel.py":
@@ -63,7 +64,7 @@ csvFile = "Transactions "+datetime+".csv"
 # Load configFile, if available
 try:
     with open(configFile, mode='r') as file:
-        
+
         csvf = csv.reader(file)
         for lines in csvf:
             if lines[0] == 'username':
@@ -117,9 +118,9 @@ while browser.url != baseURL or browser.code != 200:
         retries += 1
     except NameError:
         retries = 0
-        
+
     # Check for retry failure...
-    if retries > 3 and (browser.url!=baseURL or browser.code!=200):
+    if retries > 3 and (browser.url != baseURL or browser.code != 200):
         assert False, "Retry max exceeded!"
     elif not silentMode and retries > 0:
         print("Retrying...")
@@ -129,7 +130,7 @@ while browser.url != baseURL or browser.code != 200:
         if not silentMode:
             print("Accessing", baseURL)
         go(baseURL)
-        
+
     if browser.code == 200 and browser.url == loginURL:
         assert browser.forms != [], "Login Form Missing!"
         if interactive:
@@ -138,12 +139,12 @@ while browser.url != baseURL or browser.code != 200:
         fv("login", "email",  username)
         fv("login", "password", password)
         if interactive:
-            username = ""
+            #username = ""
             password = ""
         elif not silentMode:
             print("Logging In...")
         submit("0")
-        if browser.code != 200 or browser.url==loginURL:
+        if browser.code != 200 or browser.url == loginURL:
             if not silentMode:
                 print("Login Failed!")
             if not interactive:
@@ -169,26 +170,29 @@ while browser.url != baseURL or browser.code != 200:
             if not silentMode:
                 print("2FA Failed!")
             if not interactive:
-                wait = [1,30,31,31][retries]
+                wait = [1, 30, 31, 31][retries]
                 if not silentMode and wait > 2:
                     print("Retrying in", wait, "seconds...")
                 sleep(wait)
-        
+
     # Needs better verification via HTML
     if browser.code == 502:
         assert False, "Website down for maintence!"
 
- 
-#print("Loading Wallet...")
-#go(walletURL)
+
 if saveHTML:
     if not silentMode:
         print("Saving HTML", summaryHtmlFile)
     save_html(summaryHtmlFile)
 
+#print("Loading Wallet...")
+#go(walletURL)
+
 if not silentMode:
     print("Loading Transactions...")
+
 go(transactionURL)
+assert browser.code == 200, "Failed to Load Transactions"
 
 if saveHTML:
     if not silentMode:
@@ -217,44 +221,44 @@ for link in soup.find_all("a")[::-1]:
 
     res = res.strip()
     res = res.splitlines()
-    if len(res)==3:
+    if len(res) == 3:
         date = res[1].split(" ")
-        if len(date)==5:
-            
-            totalTransactions+=1
-            transaction_id=totalTransactions
-            
+        if len(date) == 5:
+
+            totalTransactions += 1
+            transaction_id = totalTransactions
+
             # Line 1
             miner_id = 0
-            line1=res[0].split(" ")
-            transaction_type=line1[0]
-            if len(line1)==3:
-                miner_id=int(line1[2][0:-1])
-            
+            line1 = res[0].split(" ")
+            transaction_type = line1[0]
+            if len(line1) == 3:
+                miner_id = int(line1[2][0:-1])
+
             # Line 2
             ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
-            transaction_time=strftime("%Y-%m-%d %H:%M", ttime)
-            
+            transaction_time = strftime("%Y-%m-%d %H:%M", ttime)
+
             # Synthetic ID (Time + Miner)
-            transaction_sid=int(mktime(ttime))*10000000+miner_id
-            
+            transaction_sid = int(mktime(ttime))*10000000+miner_id
+
             # Line 3
-            line3=res[2].split(" ")
-            transaction_amount=line3[0]
-            transaction_amount_type=line3[1]
-            
+            line3 = res[2].split(" ")
+            transaction_amount = line3[0]
+            transaction_amount_type = line3[1]
+
             if transaction_type == "Withdraw":
                 totalBTCwithdrawn += float(transaction_amount)
-            elif len(line1)==3: # Miner Deposit
+            elif len(line1) == 3:  # Miner Deposit
                 totalBTCmined += float(transaction_amount)
                 try:
                     minersBTCmined[miner_id] += float(transaction_amount)
                 except:
                     minersBTCmined[miner_id] = float(transaction_amount)
-            elif len(line1)==2: # BTC deposit
+            elif len(line1) == 2:  # BTC deposit
                 totalBTCdeposited += float(transaction_amount)
-            
-            transaction=[]
+
+            transaction = []
             transaction.append(transaction_sid)
             transaction.append(transaction_id)
             transaction.append(transaction_time)
@@ -263,7 +267,7 @@ for link in soup.find_all("a")[::-1]:
             transaction.append(transaction_amount)
             transaction.append(transaction_amount_type)
             transactions.append(transaction)
-            
+
 transactions = transactions[::-1]
 
 
@@ -280,16 +284,12 @@ if totalTransactions > 0:
         print("")
         print("Total Transactions  =", totalTransactions)
         print("")
-        print("Total BTC Deposited =", round(totalBTCdeposited,8))
-        print("Total BTC Withdrawn =", round(totalBTCwithdrawn,8))
+        print("Total BTC Deposited =", round(totalBTCdeposited, 8))
+        print("Total BTC Withdrawn =", round(totalBTCwithdrawn, 8))
         print("")
-        print("Total BTC Mined     =", round(totalBTCmined,8))
+        print("Total BTC Mined     =", round(totalBTCmined, 8))
         print("")
         for miner in sorted(minersBTCmined.keys()):
             print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
 elif not silentMode:
     print("No Transactions!")
-    
-
-
-        
