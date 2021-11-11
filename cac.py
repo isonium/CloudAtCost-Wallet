@@ -15,8 +15,8 @@ from time import time, localtime, strftime, strptime, mktime, sleep
 import csv
 import re
 
-from twill.commands import reset_browser, log, go, fv, submit, save_html
-from twill.commands import browser, load_cookies, save_cookies, getinput
+from twill.commands import reset_browser, log, go, fv, submit, save_html,\
+                           browser, load_cookies, save_cookies, getinput
 
 from getpass import getpass as getpassword
 
