@@ -105,9 +105,9 @@ def get_cac_wallet():
                     googleWorksheet = lines[1]  
                 elif lines[0] == 'savecsv':
                     if lines[1] == 'True':
-                        saveHTML = True
+                        saveCSV = True
                     else:
-                        saveHTML = False        
+                        saveCSV = False        
                 elif lines[0] == 'silenced':
                     if lines[1] == 'True':
                         silentMode = True
@@ -115,7 +115,6 @@ def get_cac_wallet():
                         silentMode = False
     except:
         pass
-
 
     if run_mode == "Interactive":
         interactive = True
@@ -206,7 +205,6 @@ def get_cac_wallet():
         # Needs better verification via HTML
         if browser.code == 502:
             assert False, "Website down for maintence!"
-
 
     if saveHTML:
         if not silentMode:
