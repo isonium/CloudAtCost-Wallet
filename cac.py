@@ -340,7 +340,7 @@ def get_cac_wallet():
             
             try:
                 private_file = open(googleCreds)
-                creds = ServiceAccountCredentials.from_json_keyfile_name(googleCreds, scope)
+                creds = service_account.Credentials.from_service_account_file(googleCreds, scopes=scope)
             except FileNotFoundError:
                 print("Google service account credentials file not found ("+GoogleCreds+")")
                 assert False, "Exiting"
