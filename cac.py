@@ -338,7 +338,7 @@ def get_cac_wallet():
             scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive']
             
             try:
-                private_file = open(googleCreds)
+                private_file = open(googleCreds, mode='r')
                 creds = service_account.Credentials.from_service_account_file(googleCreds, scopes=scope)
             except FileNotFoundError:
                 print("Google service account credentials file not found ("+GoogleCreds+")")
