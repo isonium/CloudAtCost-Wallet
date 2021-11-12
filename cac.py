@@ -96,9 +96,9 @@ def get_cac_wallet():
                         saveHTML = False
                 elif lines[0] == 'populategooglesheet':
                     if lines[1] == 'True':
-                        saveHTML = True
+                        populateGoogleSheet = True
                     else:
-                        saveHTML = False 
+                        populateGoogleSheet = False 
                 elif lines[0] == 'googlesheet':
                     googleSheet = lines[1]
                 elif lines[0] == 'googleworksheet':
