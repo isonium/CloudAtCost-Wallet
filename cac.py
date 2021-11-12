@@ -29,52 +29,53 @@ from gspread.models import Cell
 from google.oauth2 import service_account
 import os
 
-pythonScriptName = os.path.basename(__file__).lower()
-
-# CloudAtCost.com URLs or Swivel.run
-if pythonScriptName == "swivel.py":
-    baseURL = "https://wallet.swivel.run/"
-    prefix = "swi"
-else:
-    baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
-    prefix = "cac"
-
-loginURL = baseURL+"login"
-auth_2faURL = baseURL+"auth"
-walletURL = baseURL+"wallet"
-transactionURL = baseURL+"transaction"
-
-ltime = localtime(time())
-datetime = strftime("%Y-%m-%d %H-%M", ltime)
-
-# Credentials
-username = ""
-password = ""
-auth_2fa = ""
-run_mode = "Interactive"
-
-# Config
-useCookies = False
-saveHTML = False
-saveCSV = True
-silentMode = False
-addDateTime = True
-populateGoogleSheet = False
-googleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
-googleWorksheet = "Sheet1"   # The name of the google worksheet tab inside the above Spreadsheet
-
-# Filenames
-configFile = prefix+"-config.csv"
-cookieFile = prefix+"-cookie.txt"
-summaryHtmlFile = "Summary "+datetime+".html"
-transactionHtmlFile = "Transactions "+datetime+".html"
-csvFile = "Transactions "+datetime+".csv"
-googleCreds = "google_creds.json"
-
 def main():
     get_cac_wallet()
 
 def get_cac_wallet():
+    pythonScriptName = os.path.basename(__file__).lower()
+
+    # CloudAtCost.com URLs or Swivel.run
+    if pythonScriptName == "swivel.py":
+        baseURL = "https://wallet.swivel.run/"
+        prefix = "swi"
+    else:
+        baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
+        prefix = "cac"
+
+    loginURL = baseURL+"login"
+    auth_2faURL = baseURL+"auth"
+    walletURL = baseURL+"wallet"
+    transactionURL = baseURL+"transaction"
+
+    ltime = localtime(time())
+    datetime = strftime("%Y-%m-%d %H-%M", ltime)
+
+    # Credentials
+    username = ""
+    password = ""
+    auth_2fa = ""
+    run_mode = "Interactive"
+
+    # Config
+    useCookies = False
+    saveHTML = False
+    saveCSV = True
+    silentMode = False
+    addDateTime = True
+    populateGoogleSheet = False
+    googleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
+    googleWorksheet = "Sheet1"   # The name of the google worksheet tab inside the above Spreadsheet
+
+    # Filenames
+    configFile = prefix+"-config.csv"
+    cookieFile = prefix+"-cookie.txt"
+    summaryHtmlFile = "Summary "+datetime+".html"
+    transactionHtmlFile = "Transactions "+datetime+".html"
+    csvFile = "Transactions "+datetime+".csv"
+    googleCreds = "google_creds.json"
+
+
     # Load configFile, if available
     try:
         with open(configFile, mode='r') as file:
