@@ -60,8 +60,8 @@ saveCSV = True
 silentMode = False
 addDateTime = True
 populateGoogleSheet = False
-GoogleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
-GoogleWorkSheet = "Mining"   # The name of the google worksheet tab inside the above Spreadsheet
+googleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
+googleWorksheet = "Sheet1"   # The name of the google worksheet tab inside the above Spreadsheet
 
 # Filenames
 configFile = prefix+"-config.csv"
@@ -98,7 +98,11 @@ def get_cac_wallet():
                     if lines[1] == 'True':
                         saveHTML = True
                     else:
-                        saveHTML = False   
+                        saveHTML = False 
+                elif lines[0] == 'googlesheet':
+                    googleSheet = lines[1]
+                elif lines[0] == 'googleworksheet':
+                    googleWorksheet = lines[1]  
                 elif lines[0] == 'savecsv':
                     if lines[1] == 'True':
                         saveHTML = True
@@ -342,7 +346,7 @@ def get_cac_wallet():
                 assert False, "Exiting"
             client = gspread.authorize(creds)
             sheet = client.open(googleSheet)  # the spreadhseet name
-            wksheet = sheet.worksheet(googleWorkSheet) #the worksheet name (in the spreadsheet above)
+            wksheet = sheet.worksheet(googleWorksheet) #the worksheet name (in the spreadsheet above)
             wksheet.update_cells(cells, value_input_option='USER_ENTERED')
         
         if not silentMode:
