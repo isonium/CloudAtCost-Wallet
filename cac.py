@@ -15,20 +15,22 @@ from time import time, localtime, strftime, strptime, mktime, sleep
 import csv
 import re
 
-from twill.commands import reset_browser, log, go, fv, submit, save_html,\
-                           browser, load_cookies, save_cookies, getinput
-
 from getpass import getpass as getpassword
 
-import pyotp
+from twill.commands import reset_browser, log, go, fv, submit, save_html, browser, load_cookies, save_cookies, getinput
 
 from bs4 import BeautifulSoup
 
-import gspread
-from gspread.models import Cell
-from google.oauth2 import service_account
-import os
+import pyotp
 
+try:
+    import gspread
+    from gspread.models import Cell
+    from google.oauth2 import service_account
+    gspredDisabledInternal = False
+except:
+    gspredDisabledInternal = True
+    
 def main():
     get_cac_wallet()
 
@@ -45,7 +47,7 @@ def get_cac_wallet():
 
     loginURL = baseURL+"login"
     auth_2faURL = baseURL+"auth"
-    walletURL = baseURL+"wallet"
+    #walletURL = baseURL+"wallet"
     transactionURL = baseURL+"transaction"
 
     ltime = localtime(time())
@@ -70,9 +72,16 @@ def get_cac_wallet():
     # Filenames
     configFile = prefix+"-config.csv"
     cookieFile = prefix+"-cookie.txt"
-    summaryHtmlFile = "Summary "+datetime+".html"
-    transactionHtmlFile = "Transactions "+datetime+".html"
-    csvFile = "Transactions "+datetime+".csv"
+    
+    if addDateTime:
+        summaryHtmlFile = "Summary "+datetime+".html"
+        transactionHtmlFile = "Transactions "+datetime+".html"
+        csvFile = "Transactions "+datetime+".csv"
+    else:
+        summaryHtmlFile = "Summary.html"
+        transactionHtmlFile = "Transactions.html"        
+        csvFile = "Transactions.csv"
+    
     googleCreds = "google_creds.json"
 
 
@@ -116,6 +125,9 @@ def get_cac_wallet():
                         silentMode = False
     except:
         pass
+    
+    if gspredDisabledInternal and populateGoogleSheet:
+        assert False, "Python 'gspred' and 'google' modules not installed!"
 
     if run_mode == "Interactive":
         interactive = True
@@ -341,7 +353,7 @@ def get_cac_wallet():
                 private_file = open(googleCreds, mode='r')
                 creds = service_account.Credentials.from_service_account_file(googleCreds, scopes=scope)
             except FileNotFoundError:
-                print("Google service account credentials file not found ("+GoogleCreds+")")
+                print("Google service account credentials file not found ("+googleCreds+")")
                 assert False, "Exiting"
             client = gspread.authorize(creds)
             sheet = client.open(googleSheet)  # the spreadhseet name
