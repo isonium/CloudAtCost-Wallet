@@ -8,21 +8,32 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
-import os
-
-from time import time, localtime, strftime, strptime, mktime, sleep
-
-import csv
-import re
-
 from getpass import getpass as getpassword
+import re
+import csv
+from time import time, localtime, strftime, strptime, mktime, sleep
+import os
+import sys
+assert sys.version_info[0] == 3, "Python 3.x required."
 
-from twill.commands import reset_browser, log, go, fv, submit, save_html, browser, load_cookies, save_cookies, getinput
 
-from bs4 import BeautifulSoup
+# (Required) external modules
+try:
+    from twill.commands import reset_browser, log, go, fv, submit, save_html, browser, load_cookies, save_cookies, getinput
+    from bs4 import BeautifulSoup
+except:
+    assert False, "Install requirements.txt Python modules first..."
 
-import pyotp
 
+# (Optional) 2FA Support
+try:
+    import pyotp
+    pyotpDisabledInternal = False
+except:
+    pyotpDisabledInternal = True
+
+
+# (Optional) Google Sheets Support
 try:
     import gspread
     from gspread.models import Cell
@@ -30,13 +41,17 @@ try:
     gspredDisabledInternal = False
 except:
     gspredDisabledInternal = True
-    
+
+
 def main():
     get_cac_wallet()
+
 
 def get_cac_wallet():
     pythonScriptName = os.path.basename(__file__).lower()
 
+    useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46"
+    
     # CloudAtCost.com URLs or Swivel.run
     if pythonScriptName == "swivel.py":
         baseURL = "https://wallet.swivel.run/"
@@ -67,23 +82,34 @@ def get_cac_wallet():
     addDateTime = True
     populateGoogleSheet = False
     googleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
-    googleWorksheet = "Sheet1"   # The name of the google worksheet tab inside the above Spreadsheet
+    # The name of the google worksheet tab inside the above Spreadsheet
+    googleWorksheet = "Sheet1"
 
     # Filenames
     configFile = prefix+"-config.csv"
     cookieFile = prefix+"-cookie.txt"
-    
+
     if addDateTime:
         summaryHtmlFile = "Summary "+datetime+".html"
         transactionHtmlFile = "Transactions "+datetime+".html"
         csvFile = "Transactions "+datetime+".csv"
     else:
         summaryHtmlFile = "Summary.html"
-        transactionHtmlFile = "Transactions.html"        
+        transactionHtmlFile = "Transactions.html"
         csvFile = "Transactions.csv"
-    
+
     googleCreds = "google_creds.json"
 
+    # Delete cookies file if config file was modified
+    configModified = False
+    try:
+        configTime = os.path.getmtime(configFile)
+        cookieTime = os.path.getmtime(cookieFile)
+        if configTime > cookieTime:
+            configModified = True
+            os.unlink(cookieFile)
+    except:
+        pass
 
     # Load configFile, if available
     try:
@@ -97,6 +123,8 @@ def get_cac_wallet():
                     password = lines[1]
                 elif lines[0] == 'auth_2fa':
                     auth_2fa = lines[1]
+                elif lines[0] == 'useragent':
+                    useragent = lines[1]
                 elif lines[0] == 'run_mode':
                     run_mode = lines[1]
                 elif lines[0] == 'savehtml':
@@ -108,16 +136,16 @@ def get_cac_wallet():
                     if lines[1] == 'True':
                         populateGoogleSheet = True
                     else:
-                        populateGoogleSheet = False 
+                        populateGoogleSheet = False
                 elif lines[0] == 'googlesheet':
                     googleSheet = lines[1]
                 elif lines[0] == 'googleworksheet':
-                    googleWorksheet = lines[1]  
+                    googleWorksheet = lines[1]
                 elif lines[0] == 'savecsv':
                     if lines[1] == 'True':
                         saveCSV = True
                     else:
-                        saveCSV = False        
+                        saveCSV = False
                 elif lines[0] == 'silenced':
                     if lines[1] == 'True':
                         silentMode = True
@@ -125,9 +153,12 @@ def get_cac_wallet():
                         silentMode = False
     except:
         pass
-    
+
     if gspredDisabledInternal and populateGoogleSheet:
         assert False, "Python 'gspred' and 'google' modules not installed!"
+
+    if configModified and not silentMode:
+        print("Notice: Config file was modified, so cookie file removed.")
 
     if run_mode == "Interactive":
         interactive = True
@@ -139,11 +170,17 @@ def get_cac_wallet():
 
     # Setup TOPT with 2FA Secret, if needed
     if not interactive and auth_2fa != "":
-        totp = pyotp.TOTP(auth_2fa)
+        if pyotpDisabledInternal:
+            assert False, "Python 'pyotp' module not installed!"
+        else:
+            totp = pyotp.TOTP(auth_2fa)
+
+    # Done checking options and modules
 
     # Initialize Twill Browser
     log.disabled = True
     reset_browser()
+    browser.user_agent = useragent
 
     # See if we can load cached cookies
     if useCookies:
@@ -208,16 +245,22 @@ def get_cac_wallet():
             # check if code expired
             if browser.code == 422:
                 if not silentMode:
-                    print("2FA Failed!")
+                    print("422: 2FA Failed!")
                 if not interactive:
                     wait = [1, 30, 31, 31][retries]
                     if not silentMode and wait > 2:
                         print("Retrying in", wait, "seconds...")
                     sleep(wait)
 
+        if browser.code == 500:
+            assert False, "500: WInternal Server Error!"
+
         # Needs better verification via HTML
         if browser.code == 502:
-            assert False, "Website down for maintence!"
+            assert False, "502: Website down for maintence!"
+
+        if browser.code == 504:
+            assert False, "504: Gateway Timeout!"
 
     if saveHTML:
         if not silentMode:
@@ -254,9 +297,10 @@ def get_cac_wallet():
     minersBTCmined = {}
 
     if populateGoogleSheet:
-        row = 1   #starting row in the google sheet
+        row = 1  # starting row in the google sheet
         cells = []
-        cells.append(Cell(row=row, col=1,value=datetime))  # mark the time in the google sheet 
+        # mark the time in the google sheet
+        cells.append(Cell(row=row, col=1, value=datetime))
         row += 1
 
     for link in soup.find_all("a")[::-1]:
@@ -314,22 +358,22 @@ def get_cac_wallet():
                 transactions.insert(0, transaction)
 
     if populateGoogleSheet and totalTransactions > 0:
-        cells.append(Cell(row=row, col=1,value="Miner ID"))
-        cells.append(Cell(row=row, col=2,value="SID"))
-        cells.append(Cell(row=row, col=3,value="Transcation"))
-        cells.append(Cell(row=row, col=4,value="Amount"))
-        cells.append(Cell(row=row, col=5,value="Date"))
-        cells.append(Cell(row=row, col=6,value="Type"))
-        cells.append(Cell(row=row, col=7,value="Currency"))
+        cells.append(Cell(row=row, col=1, value="Miner ID"))
+        cells.append(Cell(row=row, col=2, value="SID"))
+        cells.append(Cell(row=row, col=3, value="Transcation"))
+        cells.append(Cell(row=row, col=4, value="Amount"))
+        cells.append(Cell(row=row, col=5, value="Date"))
+        cells.append(Cell(row=row, col=6, value="Type"))
+        cells.append(Cell(row=row, col=7, value="Currency"))
         row += 1
         for transaction in transactions:
-            cells.append(Cell(row=row, col=1,value=transaction[4]))
-            cells.append(Cell(row=row, col=2,value=transaction[0]))
-            cells.append(Cell(row=row, col=3,value=transaction[1]))
-            cells.append(Cell(row=row, col=4,value=transaction[5]))
-            cells.append(Cell(row=row, col=5,value=transaction[2]))
-            cells.append(Cell(row=row, col=6,value=transaction[3]))
-            cells.append(Cell(row=row, col=7,value=transaction[6]))
+            cells.append(Cell(row=row, col=1, value=transaction[4]))
+            cells.append(Cell(row=row, col=2, value=transaction[0]))
+            cells.append(Cell(row=row, col=3, value=transaction[1]))
+            cells.append(Cell(row=row, col=4, value=transaction[5]))
+            cells.append(Cell(row=row, col=5, value=transaction[2]))
+            cells.append(Cell(row=row, col=6, value=transaction[3]))
+            cells.append(Cell(row=row, col=7, value=transaction[6]))
             row += 1
 
     if totalTransactions > 0:
@@ -347,19 +391,23 @@ def get_cac_wallet():
                 print("Populating Google Sheet")
 
             # google sheets scope setup
-            scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/drive']
-            
+            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets',
+                     'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
+
             try:
                 private_file = open(googleCreds, mode='r')
-                creds = service_account.Credentials.from_service_account_file(googleCreds, scopes=scope)
+                creds = service_account.Credentials.from_service_account_file(
+                    googleCreds, scopes=scope)
             except FileNotFoundError:
-                print("Google service account credentials file not found ("+googleCreds+")")
+                print(
+                    "Google service account credentials file not found ("+googleCreds+")")
                 assert False, "Exiting"
             client = gspread.authorize(creds)
             sheet = client.open(googleSheet)  # the spreadhseet name
-            wksheet = sheet.worksheet(googleWorksheet) #the worksheet name (in the spreadsheet above)
+            # the worksheet name (in the spreadsheet above)
+            wksheet = sheet.worksheet(googleWorksheet)
             wksheet.update_cells(cells, value_input_option='USER_ENTERED')
-        
+
         if not silentMode:
             print("")
             print("Total Transactions  =", totalTransactions)
@@ -373,6 +421,7 @@ def get_cac_wallet():
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
     elif not silentMode:
         print("No Transactions!")
+
 
 if __name__ == "__main__":
     main()
