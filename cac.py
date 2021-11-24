@@ -9,10 +9,14 @@ Created on Mon Oct 25 19:28:42 2021
 """
 
 from getpass import getpass as getpassword
+
 import re
 import csv
+
 from time import time, localtime, strftime, strptime, mktime, sleep
+
 import os
+
 import sys
 assert sys.version_info[0] == 3, "Python 3.x required."
 
@@ -106,8 +110,8 @@ def get_cac_wallet():
         configTime = os.path.getmtime(configFile)
         cookieTime = os.path.getmtime(cookieFile)
         if configTime > cookieTime:
-            configModified = True
             os.unlink(cookieFile)
+            configModified = True
     except:
         pass
 
@@ -158,7 +162,7 @@ def get_cac_wallet():
         assert False, "Python 'gspred' and 'google' modules not installed!"
 
     if configModified and not silentMode:
-        print("Notice: Config file was modified, so cookie file removed.")
+        print("Notice: Config file modified, cookie file removed.")
 
     if run_mode == "Interactive":
         interactive = True
@@ -253,7 +257,7 @@ def get_cac_wallet():
                     sleep(wait)
 
         if browser.code == 500:
-            assert False, "500: WInternal Server Error!"
+            assert False, "500: Internal Server Error!"
 
         # Needs better verification via HTML
         if browser.code == 502:
@@ -287,6 +291,8 @@ def get_cac_wallet():
         save_cookies(cookieFile)
 
     # Parse HTML
+    if not silentMode:
+        print("Processing Transactions...")
     soup = BeautifulSoup(browser.html, "lxml")
 
     transactions = []
