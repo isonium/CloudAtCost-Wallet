@@ -224,6 +224,7 @@ def get_cac_wallet():
                 password = ""
             elif not silentMode:
                 print("Logging In...")
+            sleep(1)
             submit("0")
             if browser.code != 200 or browser.url == loginURL:
                 if not silentMode:
@@ -238,6 +239,7 @@ def get_cac_wallet():
             if interactive:
                 authCode = getinput("2FA Code: ")
             else:
+                sleep(1)
                 authCode = str(totp.now())
             fv("authCheck", "authCode", authCode)
             if interactive:
