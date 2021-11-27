@@ -258,6 +258,9 @@ def get_cac_wallet():
                         print("Retrying in", wait, "seconds...")
                     sleep(wait)
 
+        if browser.code == 404:
+            assert False, "404: Page Not Found!"
+
         if browser.code == 500:
             assert False, "500: Internal Server Error!"
 
