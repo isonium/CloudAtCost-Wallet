@@ -184,7 +184,7 @@ def get_cac_wallet():
     # Initialize Twill Browser
     log.disabled = True
     reset_browser()
-    browser.user_agent = useragent
+    browser.agent_string = useragent
 
     # See if we can load cached cookies
     if useCookies:
