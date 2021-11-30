@@ -4,3 +4,12 @@
 /*.bin
 /*cookie*.*
 /swivel.py
+/*-config.csv
+/*-config?.csv
+/*-cookie.txt
+/*-cookie?.txt
+/cac-config.csv
+/cac-cookie.txt
+/swi-config.csv
+/swi-cookie.txt
+/google_creds.json
