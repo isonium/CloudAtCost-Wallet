@@ -46,215 +46,224 @@ try:
 except:
     gspredDisabledInternal = True
 
+configs = []
 
 def main():
-    get_cac_wallet()
-
-
-def get_cac_wallet():
-    pythonScriptName = os.path.basename(__file__).lower()
-
-    useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46"
-    
-    # CloudAtCost.com URLs or Swivel.run
-    if pythonScriptName == "swivel.py":
-        baseURL = "https://wallet.swivel.run/"
-        prefix = "swi"
+    new_config = False
+    for file_number in ["1","2","3","4","5","6","7","8","9"]:
+        if os.path.exists("config"+file_number+".csv"):
+            new_config = True
+            config = { "new_config":True }
+            set_defaults(config, file_number)
+            load_config(config)
+            configs.append(config)
+        
+    if new_config:
+        for config in configs:
+            if not config["silentMode"]:
+                print("Config file",config["configFile"],"loaded...")
+            html = load_transactions(config)
+            process_transactions(config, html)
     else:
-        baseURL = "https://wallet.cloudatcost.com/"    # Summary Page
-        prefix = "cac"
+        config = {}
+        set_defaults(config)
+        load_config(config)
+        configs.append(config)
+        html = load_transactions(config)
+        process_transactions(config, html)
 
-    loginURL = baseURL+"login"
-    auth_2faURL = baseURL+"auth"
-    #walletURL = baseURL+"wallet"
-    transactionURL = baseURL+"transaction"
+
+def set_defaults(config, file_number=""):  
+    config["pythonScriptName"] = os.path.basename(__file__).lower()
+
+    config["useragent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46"
+
+    config["file_number"] = file_number
+
+    # CloudAtCost.com URLs or Swivel.run
+    if config["pythonScriptName"] == "swivel.py":
+        config["baseURL"] = "https://wallet.swivel.run/"
+        config["prefix"] = "swi"
+    else:
+        config["baseURL"] = "https://wallet.cloudatcost.com/"    # Summary Page
+        config["prefix"] = "cac"
+
+    config["loginURL"] = config["baseURL"]+"login"
+    config["auth_2faURL"] = config["baseURL"]+"auth"
+    config["walletURL"] = config["baseURL"]+"wallet"
+    config["transactionURL"] = config["baseURL"]+"transaction"
 
     ltime = localtime(time())
-    datetime = strftime("%Y-%m-%d %H-%M", ltime)
+    config["datetime"] = strftime("%Y-%m-%d %H-%M", ltime)
 
     # Credentials
-    username = ""
-    password = ""
-    auth_2fa = ""
-    run_mode = "Interactive"
+    config["username"] = ""
+    config["password"] = ""
+    config["auth_2fa"] = ""
+    config["run_mode"] = "Interactive"
 
     # Config
-    useCookies = False
-    saveHTML = False
-    saveCSV = True
-    silentMode = False
-    addDateTime = True
-    populateGoogleSheet = False
-    googleSheet = "CloudAtCost"   # The name of the Google Sheet to populate
+    config["useCookies"] = False
+    config["saveHTML"] = False
+    config["saveCSV"] = True
+    config["silentMode"] = False
+    config["addDateTime"] = True
+    
+    config["populategooglesheet"] = False
+    config["googleSheet"] = "CloudAtCost"   # The name of the Google Sheet to populate
     # The name of the google worksheet tab inside the above Spreadsheet
-    googleWorksheet = "Sheet1"
+    config["googleWorksheet"] = "Sheet1"
 
     # Filenames
-    configFile = prefix+"-config.csv"
-    cookieFile = prefix+"-cookie.txt"
-
-    if addDateTime:
-        summaryHtmlFile = "Summary "+datetime+".html"
-        transactionHtmlFile = "Transactions "+datetime+".html"
-        csvFile = "Transactions "+datetime+".csv"
+    if file_number == "":
+        config["configFile"] = config["prefix"]+"-config"+".csv"
+        config["cookieFile"] = config["prefix"]+"-cookie"+".bin"
     else:
-        summaryHtmlFile = "Summary.html"
-        transactionHtmlFile = "Transactions.html"
-        csvFile = "Transactions.csv"
+        config["configFile"] = "config"+file_number+".csv"
+        config["cookieFile"] = "cookie"+file_number+".bin"
+        
+    if config["addDateTime"]:
+        config["summaryHtmlFile"] = "Summary "+config["datetime"]+".html"
+        config["transactionHtmlFile"] = "Transactions "+config["datetime"]+".html"
+        config["csvFile"] = "Transactions "+config["datetime"]+".csv"
+    else:
+        config["summaryHtmlFile"] = "Summary.html"
+        config["transactionHtmlFile"] = "Transactions.html"
+        config["csvFile"] = "Transactions.csv"
 
-    googleCreds = "google_creds.json"
+    config["googleCreds"] = "google_creds.json"
 
+
+def load_config(config):
     # Delete cookies file if config file was modified
-    configModified = False
+    config["configModified"] = False
     try:
-        configTime = os.path.getmtime(configFile)
-        cookieTime = os.path.getmtime(cookieFile)
+        configTime = os.path.getmtime(config["configFile"])
+        cookieTime = os.path.getmtime(config["cookieFile"])
         if configTime > cookieTime:
-            os.unlink(cookieFile)
-            configModified = True
+            os.unlink(config["cookieFile"])
+            config["configModified"] = True
     except:
         pass
 
     # Load configFile, if available
     try:
-        with open(configFile, mode='r') as file:
-
+        with open(config["configFile"], mode='r') as file:
             csvf = csv.reader(file)
             for lines in csvf:
-                if lines[0] == 'username':
-                    username = lines[1]
-                elif lines[0] == 'password':
-                    password = lines[1]
-                elif lines[0] == 'auth_2fa':
-                    auth_2fa = lines[1]
-                elif lines[0] == 'useragent':
-                    useragent = lines[1]
-                elif lines[0] == 'run_mode':
-                    run_mode = lines[1]
-                elif lines[0] == 'savehtml':
-                    if lines[1] == 'True':
-                        saveHTML = True
-                    else:
-                        saveHTML = False
-                elif lines[0] == 'populategooglesheet':
-                    if lines[1] == 'True':
-                        populateGoogleSheet = True
-                    else:
-                        populateGoogleSheet = False
-                elif lines[0] == 'googlesheet':
-                    googleSheet = lines[1]
-                elif lines[0] == 'googleworksheet':
-                    googleWorksheet = lines[1]
-                elif lines[0] == 'savecsv':
-                    if lines[1] == 'True':
-                        saveCSV = True
-                    else:
-                        saveCSV = False
-                elif lines[0] == 'silenced':
-                    if lines[1] == 'True':
-                        silentMode = True
-                    else:
-                        silentMode = False
-    except:
+                if lines[1] == "False":
+                    config[lines[0]] = False
+                elif lines[1] == "True":
+                    config[lines[0]] = True
+                else:
+                    config[lines[0]] = lines[1]
+    except FileNotFoundError:
         pass
 
-    if gspredDisabledInternal and populateGoogleSheet:
+    if gspredDisabledInternal and config["populategooglesheet"]:
         assert False, "Python 'gspred' and 'google' modules not installed!"
 
-    if configModified and not silentMode:
+    if config["configModified"] and not config["silentMode"]:
         print("Notice: Config file modified, cookie file removed.")
 
-    if run_mode == "Interactive":
-        interactive = True
-    elif run_mode == "Automatic":
-        interactive = False
-        useCookies = True
+    if config["run_mode"] == "Interactive":
+        config["interactive"] = True
+    elif config["run_mode"] == "Automatic":
+        config["interactive"] = False
+        config["useCookies"] = True
     else:
         assert False, "Bad Run Mode"
 
     # Setup TOPT with 2FA Secret, if needed
-    if not interactive and auth_2fa != "":
+    if not config["interactive"] and config["auth_2fa"] != "":
         if pyotpDisabledInternal:
             assert False, "Python 'pyotp' module not installed!"
         else:
-            totp = pyotp.TOTP(auth_2fa)
+            config["totp"] = pyotp.TOTP(config["auth_2fa"])
+    
+    if "saveFilePrefix" in config:
+        config["summaryHtmlFile"] = config["saveFilePrefix"] + config["summaryHtmlFile"]
+        config["transactionHtmlFile"] = config["saveFilePrefix"] + config["transactionHtmlFile"]
+        config["csvFile"] = config["saveFilePrefix"] + config["csvFile"]
+    elif "new_config" in config and config["file_number"] != "":
+        config["summaryHtmlFile"] = config["file_number"] + " " + config["summaryHtmlFile"]
+        config["transactionHtmlFile"] = config["file_number"] + " " + config["transactionHtmlFile"]
+        config["csvFile"] = config["file_number"] + " " + config["csvFile"]
+        
 
-    # Done checking options and modules
 
+def load_transactions(config):
     # Initialize Twill Browser
     log.disabled = True
     reset_browser()
-    browser.agent_string = useragent
+    browser.agent_string = config["useragent"]
 
     # See if we can load cached cookies
-    if useCookies:
+    if config["useCookies"]:
         try:
-            load_cookies(cookieFile)
+            load_cookies(config["cookieFile"])
         except:
             pass
 
     # Do the login and possibly 2FA, if needed
-    while browser.url != baseURL or browser.code != 200:
-        try:
-            retries += 1
-        except NameError:
-            retries = 0
-
+    retries = -1
+    while browser.url != config["baseURL"] or browser.code != 200:
+        retries += 1
         # Check for retry failure...
-        if retries > 3 and (browser.url != baseURL or browser.code != 200):
+        if retries > 3 and (browser.url != config["baseURL"] or browser.code != 200):
             assert False, "Retry max exceeded!"
-        elif not silentMode and retries > 0:
+        elif not config["silentMode"] and retries > 0:
             print("Retrying...")
             print(browser.url, "==>", browser.code)
 
         if browser.url == None:
-            if not silentMode:
-                print("Accessing", baseURL)
-            go(baseURL)
+            if not config["silentMode"]:
+                print("Accessing", config["baseURL"])
+            go(config["baseURL"])
 
-        if browser.code == 200 and browser.url == loginURL:
+        if browser.code == 200 and browser.url == config["loginURL"]:
             assert browser.forms != [], "Login Form Missing!"
-            if interactive:
-                username = getinput("Username: ")
-                password = getpassword("Password: ")
-            fv("login", "email",  username)
-            fv("login", "password", password)
-            if interactive:
+            if config["interactive"]:
+                config["username"] = getinput("Username: ")
+                config["password"] = getpassword("Password: ")
+            fv("login", "email",  config["username"])
+            fv("login", "password", config["password"])
+            if config["interactive"]:
                 #username = ""
-                password = ""
-            elif not silentMode:
+                config["password"] = ""
+            elif not config["silentMode"]:
                 print("Logging In...")
             sleep(1)
             submit("0")
-            if browser.code != 200 or browser.url == loginURL:
-                if not silentMode:
+            if browser.code != 200 or browser.url == config["loginURL"]:
+                if not config["silentMode"]:
                     print("Login Failed!")
-                if not interactive:
-                    if not silentMode:
+                if not config["interactive"]:
+                    if not config["silentMode"]:
                         print("Retrying in 30 seconds...")
                         sleep(30)
 
-        if browser.code == 200 and browser.url == auth_2faURL:
+        if browser.code == 200 and browser.url == config["auth_2faURL"]:
             assert browser.forms != [], "2FA Form Missing!"
-            if interactive:
+            if config["interactive"]:
                 authCode = getinput("2FA Code: ")
             else:
                 sleep(1)
-                authCode = str(totp.now())
+                authCode = str(config["totp"].now())
             fv("authCheck", "authCode", authCode)
-            if interactive:
+            if config["interactive"]:
                 authCode = ""
-            elif not silentMode:
+            elif not config["silentMode"]:
                 print("Generating 2FA Code...")
             submit("0")
 
             # check if code expired
             if browser.code == 422:
-                if not silentMode:
+                if not config["silentMode"]:
                     print("422: 2FA Failed!")
-                if not interactive:
+                if not config["interactive"]:
                     wait = [1, 30, 31, 31][retries]
-                    if not silentMode and wait > 2:
+                    if not config["silentMode"] and wait > 2:
                         print("Retrying in", wait, "seconds...")
                     sleep(wait)
 
@@ -271,34 +280,38 @@ def get_cac_wallet():
         if browser.code == 504:
             assert False, "504: Gateway Timeout!"
 
-    if saveHTML:
-        if not silentMode:
-            print("Saving HTML", summaryHtmlFile)
-        save_html(summaryHtmlFile)
+    if config["saveHTML"]:
+        if not config["silentMode"]:
+            print("Saving HTML", config["summaryHtmlFile"])
+        save_html(config["summaryHtmlFile"])
 
     #print("Loading Wallet...")
     #go(walletURL)
 
-    if not silentMode:
+    if not config["silentMode"]:
         print("Loading Transactions...")
 
-    go(transactionURL)
+    go(config["transactionURL"])
     assert browser.code == 200, "Failed to Load Transactions"
 
-    if saveHTML:
-        if not silentMode:
-            print("Saving HTML", transactionHtmlFile)
-        save_html(transactionHtmlFile)
+    if config["saveHTML"]:
+        if not config["silentMode"]:
+            print("Saving HTML", config["transactionHtmlFile"])
+        save_html(config["transactionHtmlFile"])
 
-    if not interactive or useCookies:
-        if not silentMode:
+    if not config["interactive"] or config["useCookies"]:
+        if not config["silentMode"]:
             print("Saving Cookies...")
-        save_cookies(cookieFile)
+        save_cookies(config["cookieFile"])
+    
+    return browser.html
+        
 
+def process_transactions(config, html):
     # Parse HTML
-    if not silentMode:
+    if not config["silentMode"]:
         print("Processing Transactions...")
-    soup = BeautifulSoup(browser.html, "lxml")
+    soup = BeautifulSoup(html, "lxml")
 
     transactions = []
     totalTransactions = 0
@@ -307,11 +320,11 @@ def get_cac_wallet():
     totalBTCmined = 0.0
     minersBTCmined = {}
 
-    if populateGoogleSheet:
+    if config["populategooglesheet"]:
         row = 1  # starting row in the google sheet
         cells = []
         # mark the time in the google sheet
-        cells.append(Cell(row=row, col=1, value=datetime))
+        cells.append(Cell(row=row, col=1, value=config["datetime"]))
         row += 1
 
     for link in soup.find_all("a")[::-1]:
@@ -368,7 +381,7 @@ def get_cac_wallet():
                 transaction.append(transaction_amount_type)
                 transactions.insert(0, transaction)
 
-    if populateGoogleSheet and totalTransactions > 0:
+    if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
         cells.append(Cell(row=row, col=2, value="SID"))
         cells.append(Cell(row=row, col=3, value="Transcation"))
@@ -388,17 +401,17 @@ def get_cac_wallet():
             row += 1
 
     if totalTransactions > 0:
-        if saveCSV:
-            if not silentMode:
-                print("Saving '"+csvFile+"'")
+        if config["saveCSV"]:
+            if not config["silentMode"]:
+                print("Saving '"+config["csvFile"]+"'")
 
-            with open(csvFile, 'w') as f:
+            with open(config["csvFile"], 'w') as f:
                 f.write("SID, Transaction, Date, Type, Miner ID, Amount, Currency\n")
                 for transaction in transactions:
                     f.write(re.sub("'", '', str(transaction)[1:-1])+"\n")
 
-        if populateGoogleSheet:
-            if not silentMode:
+        if config["populategooglesheet"]:
+            if not config["silentMode"]:
                 print("Populating Google Sheet")
 
             # google sheets scope setup
@@ -406,20 +419,20 @@ def get_cac_wallet():
                      'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
 
             try:
-                private_file = open(googleCreds, mode='r')
+                private_file = open(config["googleCreds"], mode='r')
                 creds = service_account.Credentials.from_service_account_file(
-                    googleCreds, scopes=scope)
+                    config["googleCreds"], scopes=scope)
             except FileNotFoundError:
                 print(
-                    "Google service account credentials file not found ("+googleCreds+")")
+                    "Google service account credentials file not found ("+config["googleCreds"]+")")
                 assert False, "Exiting"
             client = gspread.authorize(creds)
-            sheet = client.open(googleSheet)  # the spreadhseet name
+            sheet = client.open(config["googleSheet"])  # the spreadhseet name
             # the worksheet name (in the spreadsheet above)
-            wksheet = sheet.worksheet(googleWorksheet)
+            wksheet = sheet.worksheet(config["googleWorksheet"])
             wksheet.update_cells(cells, value_input_option='USER_ENTERED')
 
-        if not silentMode:
+        if not config["silentMode"]:
             print("")
             print("Total Transactions  =", totalTransactions)
             print("")
@@ -430,9 +443,9 @@ def get_cac_wallet():
             print("")
             for miner in sorted(minersBTCmined.keys()):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
-    elif not silentMode:
+            print("")
+    elif not config["silentMode"]:
         print("No Transactions!")
-
 
 if __name__ == "__main__":
     main()
