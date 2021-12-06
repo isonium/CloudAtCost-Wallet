@@ -40,7 +40,7 @@ except:
 # (Optional) Google Sheets Support
 try:
     import gspread
-    from gspread.models import Cell
+    from gspread import Cell
     from google.oauth2 import service_account
     gspredDisabledInternal = False
 except:
