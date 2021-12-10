@@ -112,7 +112,12 @@ def set_defaults(config, file_number=""):
     config["populategooglesheet"] = False
     config["googleSheet"] = "CloudAtCost"   # The name of the Google Sheet to populate
     # The name of the google worksheet tab inside the above Spreadsheet
-    config["googleWorksheet"] = "Sheet1"
+
+    if file_number == "":
+        config["googleWorksheet"] = "Sheet1"
+    else:
+        config["googleWorksheet"] = "Sheet"+file_number
+        
 
     # Filenames
     if file_number == "":
@@ -206,15 +211,18 @@ def load_transactions(config):
             pass
 
     # Do the login and possibly 2FA, if needed
-    retries = -1
+    #retries = -1
     while browser.url != config["baseURL"] or browser.code != 200:
+        if browser.code in [200, None]:
+            retries = -1
         retries += 1
         # Check for retry failure...
         if retries > 3 and (browser.url != config["baseURL"] or browser.code != 200):
             assert False, "Retry max exceeded!"
         elif not config["silentMode"] and retries > 0:
-            print("Retrying...")
             print(browser.url, "==>", browser.code)
+            print("Retrying...")
+
 
         if browser.url == None:
             if not config["silentMode"]:
@@ -243,7 +251,7 @@ def load_transactions(config):
                         print("Retrying in 30 seconds...")
                         sleep(30)
 
-        if browser.code == 200 and browser.url == config["auth_2faURL"]:
+        if browser.code in [200, 422] and browser.url == config["auth_2faURL"]:
             assert browser.forms != [], "2FA Form Missing!"
             if config["interactive"]:
                 authCode = getinput("2FA Code: ")
@@ -262,8 +270,8 @@ def load_transactions(config):
                 if not config["silentMode"]:
                     print("422: 2FA Failed!")
                 if not config["interactive"]:
-                    wait = [1, 30, 31, 31][retries]
-                    if not config["silentMode"] and wait > 2:
+                    wait = [2, 30, 31, 31][retries]
+                    if not config["silentMode"]:
                         print("Retrying in", wait, "seconds...")
                     sleep(wait)
 
@@ -418,14 +426,9 @@ def process_transactions(config, html):
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets',
                      'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
 
-            try:
-                private_file = open(config["googleCreds"], mode='r')
-                creds = service_account.Credentials.from_service_account_file(
-                    config["googleCreds"], scopes=scope)
-            except FileNotFoundError:
-                print(
-                    "Google service account credentials file not found ("+config["googleCreds"]+")")
-                assert False, "Exiting"
+            if not os.path.exists(config["googleCreds"]):
+                assert False, "Google service account credentials file not found ("+config["googleCreds"]+")"
+            creds = service_account.Credentials.from_service_account_file(config["googleCreds"], scopes=scope)
             client = gspread.authorize(creds)
             sheet = client.open(config["googleSheet"])  # the spreadhseet name
             # the worksheet name (in the spreadsheet above)
