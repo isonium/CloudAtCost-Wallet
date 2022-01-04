@@ -13,7 +13,7 @@ from getpass import getpass as getpassword
 import re
 import csv
 
-from time import time, localtime, strftime, strptime, mktime, sleep
+from time import time, localtime, strftime, strptime, mktime, sleep, tzset
 
 import os
 
@@ -366,12 +366,14 @@ def process_transactions(config, html):
 
                 # Line 2
                 os.environ['TZ'] = default_timezone
+                tzset()
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
                 
                 transaction_epoch = int(mktime(ttime))
                 
                 # Optionally output Date/Time in alternate timezone
                 os.environ['TZ'] = config["timezone"]
+                tzset()
                 transaction_time = strftime("%Y-%m-%d %H:%M %Z%z", localtime(transaction_epoch))
                 
                 
