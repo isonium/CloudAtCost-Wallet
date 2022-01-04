@@ -160,6 +160,9 @@ def load_config(config):
         with open(config["configFile"], mode='r') as file:
             csvf = csv.reader(file)
             for lines in csvf:
+                if len(lines)<2:
+                    assert False, 'Config file {config["configFile"]} corrupt'
+                lines[1].replace('“','')
                 if lines[1] == "False":
                     config[lines[0]] = False
                 elif lines[1] == "True":
