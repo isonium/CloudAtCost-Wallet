@@ -3,6 +3,9 @@ Python code to export CloudAtCost Wallet Transactions to a .CSV file
 
 This project allows you to log into your CloadAtCost Wallet and create a .CSV of the transactions.  Interactive mode where you enter the username, password, and 2FA code (if needed) manually works. Please install needed modules first (see reqirements.txt).  There is also an automated login using a config file.  The latter is not documented yet, but an example config file is provided.
 
+Time Zone Support:
+You can now have tranactions in your local time zone instead of "America/Toronto" time zone.  See TimeZones.EXAMPLES for proper time zone string formats.  Then add, for example,  'timezone,"America/Mountain"' to your config file(s) for America Mountain Time.  Daylight Savings Time is accounted for on both time zones, if needed.
+
 Multiple Account Support:
 1) Multiple account support is now available.
 2) Rename cac-config.csv to config1.csv
