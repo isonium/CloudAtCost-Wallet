@@ -46,6 +46,8 @@ try:
 except:
     gspredDisabledInternal = True
 
+
+default_timezone = "America/Toronto"
 configs = []
 
 def main():
@@ -75,6 +77,8 @@ def main():
 
 def set_defaults(config, file_number=""):  
     config["pythonScriptName"] = os.path.basename(__file__).lower()
+    
+    config["timezone"] = default_timezone
 
     config["useragent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46"
 
@@ -85,7 +89,7 @@ def set_defaults(config, file_number=""):
         config["baseURL"] = "https://wallet.swivel.run/"
         config["prefix"] = "swi"
     else:
-        config["baseURL"] = "https://wallet.cloudatcost.com/"    # Summary Page
+        config["baseURL"] = "https://wallet.cloudatcost.com/"
         config["prefix"] = "cac"
 
     config["loginURL"] = config["baseURL"]+"login"
@@ -317,6 +321,7 @@ def load_transactions(config):
 
 def process_transactions(config, html):
     # Parse HTML
+    
     if not config["silentMode"]:
         print("Processing Transactions...")
     soup = BeautifulSoup(html, "lxml")
@@ -357,12 +362,16 @@ def process_transactions(config, html):
                     miner_id = int(line1[2][0:-1])
 
                 # Line 2
+                os.environ['TZ'] = default_timezone
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
-                transaction_time = strftime("%Y-%m-%d %H:%M", ttime)
-
-                # Synthetic ID (Time + Miner)
-                transaction_sid = int(mktime(ttime))*10000000+miner_id
-
+                
+                transaction_epoch = int(mktime(ttime))
+                
+                # Optionally output Date/Time in alternate timezone
+                os.environ['TZ'] = config["timezone"]
+                transaction_time = strftime("%Y-%m-%d %H:%M %Z%z", localtime(transaction_epoch))
+                
+                
                 # Line 3
                 line3 = res[2].split(" ")
                 transaction_amount = line3[0]
@@ -380,7 +389,7 @@ def process_transactions(config, html):
                     totalBTCdeposited += float(transaction_amount)
 
                 transaction = []
-                transaction.append(transaction_sid)
+                transaction.append(transaction_epoch)
                 transaction.append(transaction_id)
                 transaction.append(transaction_time)
                 transaction.append(transaction_type)
@@ -391,7 +400,7 @@ def process_transactions(config, html):
 
     if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
-        cells.append(Cell(row=row, col=2, value="SID"))
+        cells.append(Cell(row=row, col=2, value="Epoch"))
         cells.append(Cell(row=row, col=3, value="Transcation"))
         cells.append(Cell(row=row, col=4, value="Amount"))
         cells.append(Cell(row=row, col=5, value="Date"))
@@ -414,7 +423,7 @@ def process_transactions(config, html):
                 print("Saving '"+config["csvFile"]+"'")
 
             with open(config["csvFile"], 'w') as f:
-                f.write("SID, Transaction, Date, Type, Miner ID, Amount, Currency\n")
+                f.write("Epoch, Transaction, Date, Type, Miner ID, Amount, Currency\n")
                 for transaction in transactions:
                     f.write(re.sub("'", '', str(transaction)[1:-1])+"\n")
 
