@@ -13,3 +13,4 @@
 /swi-config.csv
 /swi-cookie.txt
 /google_creds.json
+/config?.*
