@@ -8,17 +8,17 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
+from sys import version_info as vinfo
+assert vinfo[0]==3 and vinfo[1]>5, "Python 3.6+ required."
+
 from getpass import getpass as getpassword
 
 import re
 import csv
 
-from time import time, localtime, strftime, strptime, mktime, sleep, tzset
-
 import os
 
-from sys import version_info as vinfo
-assert vinfo[0]==3 and vinfo[1]>5, "Python 3.6+ required."
+from time import time, localtime, strftime, strptime, mktime, sleep
 
 
 # (Required) external modules
@@ -27,6 +27,14 @@ try:
     from bs4 import BeautifulSoup
 except:
     assert False, "Install requirements.txt Python modules first..."
+
+
+# (Optional) Time Zone Support
+try:
+    from time import tzset
+    tzsetDisabledInternal = False
+except:
+    tzsetDisabledInternal = True
 
 
 # (Optional) 2FA Support
@@ -366,14 +374,16 @@ def process_transactions(config, html):
 
                 # Line 2
                 os.environ['TZ'] = default_timezone
-                tzset()
+                if not tzsetDisabledInternal:
+                    tzset()
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
                 
                 transaction_epoch = int(mktime(ttime))
                 
                 # Optionally output Date/Time in alternate timezone
                 os.environ['TZ'] = config["timezone"]
-                tzset()
+                if not tzsetDisabledInternal:
+                    tzset()
                 transaction_time = strftime("%Y-%m-%d %H:%M %Z%z", localtime(transaction_epoch))
                 
                 
