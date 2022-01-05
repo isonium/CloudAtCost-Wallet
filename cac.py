@@ -171,6 +171,10 @@ def load_config(config):
                 if len(lines)<2:
                     assert False, 'Config file {config["configFile"]} corrupt'
                 lines[1].replace('“','')
+                
+                if tzsetDisabledInternal and lines[0] == "timezone":
+                    print("This platform does not support time zone changing!")
+                    
                 if lines[1] == "False":
                     config[lines[0]] = False
                 elif lines[1] == "True":
@@ -373,18 +377,21 @@ def process_transactions(config, html):
                     miner_id = int(line1[2][0:-1])
 
                 # Line 2
-                os.environ['TZ'] = default_timezone
                 if not tzsetDisabledInternal:
+                    os.environ['TZ'] = default_timezone
                     tzset()
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
                 
                 transaction_epoch = int(mktime(ttime))
                 
                 # Optionally output Date/Time in alternate timezone
-                os.environ['TZ'] = config["timezone"]
+                date_time_fmt = "%Y-%m-%d %H:%M"
                 if not tzsetDisabledInternal:
+                    os.environ['TZ'] = config["timezone"]
                     tzset()
-                transaction_time = strftime("%Y-%m-%d %H:%M %Z%z", localtime(transaction_epoch))
+                    date_time_fmt = "%Y-%m-%d %H:%M %Z%z"
+                    
+                transaction_time = strftime(date_time_fmt, localtime(transaction_epoch))
                 
                 
                 # Line 3
