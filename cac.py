@@ -8,17 +8,15 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
-from sys import version_info as vinfo
-assert vinfo[0]==3 and vinfo[1]>5, "Python 3.6+ required."
-
-from getpass import getpass as getpassword
-
-import re
-import csv
-
-import os
-
+from datetime import datetime
+import calendar
 from time import time, localtime, strftime, strptime, mktime, sleep
+import os
+import csv
+import re
+from getpass import getpass as getpassword
+from sys import version_info as vinfo
+assert vinfo[0] == 3 and vinfo[1] > 5, "Python 3.6+ required."
 
 
 # (Required) external modules
@@ -35,6 +33,12 @@ try:
     tzsetDisabledInternal = False
 except:
     tzsetDisabledInternal = True
+
+try:
+    import pytz
+    pytzDisabledInternal = False
+except:
+    pytzDisabledInternal = True
 
 
 # (Optional) 2FA Support
@@ -57,21 +61,30 @@ except:
 
 default_timezone = "America/Toronto"
 configs = []
+bitcoin_USD = {}
+bitcoin_loaded = False
+
 
 def main():
+    # Load Bitcoin Prices
+    for year in ["2021", "2022"]:
+        file_name = "Bitstamp_BTCUSD_"+year+"_minute.csv"
+        if os.path.exists(file_name):
+            load_bitcoin_usd(file_name)
+
     new_config = False
-    for file_number in ["1","2","3","4","5","6","7","8","9"]:
+    for file_number in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         if os.path.exists("config"+file_number+".csv"):
             new_config = True
-            config = { "new_config":True }
+            config = {"new_config": True}
             set_defaults(config, file_number)
             load_config(config)
             configs.append(config)
-        
+
     if new_config:
         for config in configs:
             if not config["silentMode"]:
-                print("Config file",config["configFile"],"loaded...")
+                print("Config file", config["configFile"], "loaded...")
             html = load_transactions(config)
             process_transactions(config, html)
     else:
@@ -83,9 +96,38 @@ def main():
         process_transactions(config, html)
 
 
-def set_defaults(config, file_number=""):  
+def convert_timezones(timestamp_string, timezone_src, timezone_dest):
+    local_tz = pytz.timezone(timezone_src)
+    dest_tz = pytz.timezone(timezone_dest)
+    UTC_tz = pytz.timezone("UTC")
+    ts = datetime.strptime(timestamp_string, '%Y-%m-%d %H:%M:%S')
+    ts = local_tz.localize(ts)
+    tz_dest = ts.astimezone(dest_tz)
+    ts_dest = str(tz_dest)
+    ts_dest = ts_dest[0:19]+" "+tz_dest.tzname()+ts_dest[19:]
+    ts_UTC = str(ts.astimezone(UTC_tz))[0:19]
+    timestamp = datetime.strptime(ts_UTC, '%Y-%m-%d %H:%M:%S')
+    epoch = int(calendar.timegm(timestamp.utctimetuple()))
+
+    return ts_dest, epoch
+
+
+def load_bitcoin_usd(file_name, bitcoin_USD=bitcoin_USD):
+    global bitcoin_loaded
+    print("Loading Bitcoin USD...")
+    with open(file_name, mode='r') as file:
+        bitcoin_csv = csv.reader(file)
+        counter = -1
+        for line in bitcoin_csv:
+            if counter > 0:
+                bitcoin_USD[line[0]] = line[1:]
+            counter += 1
+        bitcoin_loaded = True
+
+
+def set_defaults(config, file_number=""):
     config["pythonScriptName"] = os.path.basename(__file__).lower()
-    
+
     config["timezone"] = default_timezone
 
     config["useragent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46"
@@ -120,16 +162,16 @@ def set_defaults(config, file_number=""):
     config["saveCSV"] = True
     config["silentMode"] = False
     config["addDateTime"] = True
-    
+
     config["populategooglesheet"] = False
-    config["googleSheet"] = "CloudAtCost"   # The name of the Google Sheet to populate
+    # The name of the Google Sheet to populate
+    config["googleSheet"] = "CloudAtCost"
     # The name of the google worksheet tab inside the above Spreadsheet
 
     if file_number == "":
         config["googleWorksheet"] = "Sheet1"
     else:
         config["googleWorksheet"] = "Sheet"+file_number
-        
 
     # Filenames
     if file_number == "":
@@ -138,10 +180,11 @@ def set_defaults(config, file_number=""):
     else:
         config["configFile"] = "config"+file_number+".csv"
         config["cookieFile"] = "cookie"+file_number+".bin"
-        
+
     if config["addDateTime"]:
         config["summaryHtmlFile"] = "Summary "+config["datetime"]+".html"
-        config["transactionHtmlFile"] = "Transactions "+config["datetime"]+".html"
+        config["transactionHtmlFile"] = "Transactions " + \
+            config["datetime"]+".html"
         config["csvFile"] = "Transactions "+config["datetime"]+".csv"
     else:
         config["summaryHtmlFile"] = "Summary.html"
@@ -168,13 +211,14 @@ def load_config(config):
         with open(config["configFile"], mode='r') as file:
             csvf = csv.reader(file)
             for lines in csvf:
-                if len(lines)<2:
+                if len(lines) < 2:
                     assert False, 'Config file {config["configFile"]} corrupt'
-                lines[1].replace('“','')
-                
-                if tzsetDisabledInternal and lines[0] == "timezone":
+                #lines[1].replace('“','')
+
+                if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
                     print("This platform does not support time zone changing!")
-                    
+                    print("Install 'pytz' module to fix...")
+
                 if lines[1] == "False":
                     config[lines[0]] = False
                 elif lines[1] == "True":
@@ -204,16 +248,19 @@ def load_config(config):
             assert False, "Python 'pyotp' module not installed!"
         else:
             config["totp"] = pyotp.TOTP(config["auth_2fa"])
-    
+
     if "saveFilePrefix" in config:
-        config["summaryHtmlFile"] = config["saveFilePrefix"] + config["summaryHtmlFile"]
-        config["transactionHtmlFile"] = config["saveFilePrefix"] + config["transactionHtmlFile"]
+        config["summaryHtmlFile"] = config["saveFilePrefix"] + \
+            config["summaryHtmlFile"]
+        config["transactionHtmlFile"] = config["saveFilePrefix"] + \
+            config["transactionHtmlFile"]
         config["csvFile"] = config["saveFilePrefix"] + config["csvFile"]
     elif "new_config" in config and config["file_number"] != "":
-        config["summaryHtmlFile"] = config["file_number"] + " " + config["summaryHtmlFile"]
-        config["transactionHtmlFile"] = config["file_number"] + " " + config["transactionHtmlFile"]
+        config["summaryHtmlFile"] = config["file_number"] + \
+            " " + config["summaryHtmlFile"]
+        config["transactionHtmlFile"] = config["file_number"] + \
+            " " + config["transactionHtmlFile"]
         config["csvFile"] = config["file_number"] + " " + config["csvFile"]
-        
 
 
 def load_transactions(config):
@@ -241,7 +288,6 @@ def load_transactions(config):
         elif not config["silentMode"] and retries > 0:
             print(browser.url, "==>", browser.code)
             print("Retrying...")
-
 
         if browser.url == None:
             if not config["silentMode"]:
@@ -330,13 +376,13 @@ def load_transactions(config):
         if not config["silentMode"]:
             print("Saving Cookies...")
         save_cookies(config["cookieFile"])
-    
+
     return browser.html
-        
+
 
 def process_transactions(config, html):
     # Parse HTML
-    
+
     if not config["silentMode"]:
         print("Processing Transactions...")
     soup = BeautifulSoup(html, "lxml")
@@ -346,6 +392,7 @@ def process_transactions(config, html):
     totalBTCdeposited = 0.0
     totalBTCwithdrawn = 0.0
     totalBTCmined = 0.0
+    totalBTCminedUSD = 0.0
     minersBTCmined = {}
 
     if config["populategooglesheet"]:
@@ -381,28 +428,42 @@ def process_transactions(config, html):
                     os.environ['TZ'] = default_timezone
                     tzset()
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
-                
+
                 transaction_epoch = int(mktime(ttime))
-                
+
                 # Optionally output Date/Time in alternate timezone
                 date_time_fmt = "%Y-%m-%d %H:%M"
+
                 if not tzsetDisabledInternal:
                     os.environ['TZ'] = config["timezone"]
                     tzset()
                     date_time_fmt = "%Y-%m-%d %H:%M %Z%z"
-                    
-                transaction_time = strftime(date_time_fmt, localtime(transaction_epoch))
-                
-                
+
+                transaction_time = strftime(
+                    date_time_fmt, localtime(transaction_epoch))
+
+                if tzsetDisabledInternal and not pytzDisabledInternal:
+                    transaction_time, transaction_epoch = convert_timezones(
+                        transaction_time+":00", default_timezone, config["timezone"])
+
                 # Line 3
                 line3 = res[2].split(" ")
                 transaction_amount = line3[0]
                 transaction_amount_type = line3[1]
 
+                fmv_USD = 0.0
+                if str(transaction_epoch) in bitcoin_USD:
+                    btc_USD = bitcoin_USD[str(transaction_epoch)]
+                    #fmv_USD = (float(btc_USD[3])+float(btc_USD[4]))/2.0
+                    fmv_USD = float(btc_USD[2])
+
+                transaction_amount_USD = float(transaction_amount) * fmv_USD
+
                 if transaction_type == "Withdraw":
                     totalBTCwithdrawn += float(transaction_amount)
                 elif len(line1) == 3:  # Miner Deposit
                     totalBTCmined += float(transaction_amount)
+                    totalBTCminedUSD += float(transaction_amount) * fmv_USD
                     try:
                         minersBTCmined[miner_id] += float(transaction_amount)
                     except:
@@ -418,6 +479,9 @@ def process_transactions(config, html):
                 transaction.append(miner_id)
                 transaction.append(transaction_amount)
                 transaction.append(transaction_amount_type)
+                if bitcoin_loaded:
+                    transaction.append("$"+str(transaction_amount_USD))
+                    transaction.append("$"+str(fmv_USD))
                 transactions.insert(0, transaction)
 
     if config["populategooglesheet"] and totalTransactions > 0:
@@ -428,6 +492,10 @@ def process_transactions(config, html):
         cells.append(Cell(row=row, col=5, value="Date"))
         cells.append(Cell(row=row, col=6, value="Type"))
         cells.append(Cell(row=row, col=7, value="Currency"))
+        if bitcoin_loaded:
+            cells.append(Cell(row=row, col=8, value="FMV"))
+            cells.append(Cell(row=row, col=9, value="BITCOIN"))
+
         row += 1
         for transaction in transactions:
             cells.append(Cell(row=row, col=1, value=transaction[4]))
@@ -437,6 +505,9 @@ def process_transactions(config, html):
             cells.append(Cell(row=row, col=5, value=transaction[2]))
             cells.append(Cell(row=row, col=6, value=transaction[3]))
             cells.append(Cell(row=row, col=7, value=transaction[6]))
+            if bitcoin_loaded:
+                cells.append(Cell(row=row, col=8, value=transaction[8]))
+                cells.append(Cell(row=row, col=9, value=transaction[9]))
             row += 1
 
     if totalTransactions > 0:
@@ -445,7 +516,13 @@ def process_transactions(config, html):
                 print("Saving '"+config["csvFile"]+"'")
 
             with open(config["csvFile"], 'w') as f:
-                f.write("Epoch, Transaction, Date, Type, Miner ID, Amount, Currency\n")
+                if bitcoin_loaded:
+                    f.write(
+                        "Epoch, Transaction, Date, Type, Miner ID, Amount, Currency, FMV, Bitcoin\n")
+                else:
+                    f.write(
+                        "Epoch, Transaction, Date, Type, Miner ID, Amount, Currency\n")
+
                 for transaction in transactions:
                     f.write(re.sub("'", '', str(transaction)[1:-1])+"\n")
 
@@ -458,8 +535,10 @@ def process_transactions(config, html):
                      'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
 
             if not os.path.exists(config["googleCreds"]):
-                assert False, "Google service account credentials file not found ("+config["googleCreds"]+")"
-            creds = service_account.Credentials.from_service_account_file(config["googleCreds"], scopes=scope)
+                assert False, "Google service account credentials file not found (" + \
+                    config["googleCreds"]+")"
+            creds = service_account.Credentials.from_service_account_file(
+                config["googleCreds"], scopes=scope)
             client = gspread.authorize(creds)
             sheet = client.open(config["googleSheet"])  # the spreadhseet name
             # the worksheet name (in the spreadsheet above)
@@ -468,18 +547,20 @@ def process_transactions(config, html):
 
         if not config["silentMode"]:
             print("")
-            print("Total Transactions  =", totalTransactions)
+            print("Total Transactions    =", totalTransactions)
             print("")
-            print("Total BTC Deposited =", round(totalBTCdeposited, 8))
-            print("Total BTC Withdrawn =", round(totalBTCwithdrawn, 8))
+            print("Total BTC Deposited   =", round(totalBTCdeposited, 8))
+            print("Total BTC Withdrawn   =", round(totalBTCwithdrawn, 8))
             print("")
-            print("Total BTC Mined     =", round(totalBTCmined, 8))
+            print("Total BTC Mined       =", round(totalBTCmined, 8))
+            print("Total BTC Mined (USD) = $"+str(round(totalBTCminedUSD, 2)))
             print("")
             for miner in sorted(minersBTCmined.keys()):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
             print("")
     elif not config["silentMode"]:
         print("No Transactions!")
+
 
 if __name__ == "__main__":
     main()
