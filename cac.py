@@ -61,16 +61,25 @@ except:
 
 default_timezone = "America/Toronto"
 configs = []
-bitcoin_USD = {}
+bitcoin = {}
 bitcoin_loaded = False
+bitcoin_currancy = ""
 
 
 def main():
     # Load Bitcoin Prices
-    for year in ["2021", "2022"]:
+    global bitcoin_currancy
+    for year in ["2021", "2022", "2023"]:
         file_name = "Bitstamp_BTCUSD_"+year+"_minute.csv"
         if os.path.exists(file_name):
             load_bitcoin_usd(file_name)
+            bitcoin_currancy = "$"
+    if not bitcoin_loaded:
+        for year in ["2021", "2022", "2023"]:
+            file_name = "Bitstamp_BTCEUR_"+year+"_minute.csv"
+            if os.path.exists(file_name):
+                load_bitcoin_usd(file_name)
+                bitcoin_currancy = "€"
 
     new_config = False
     for file_number in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
@@ -112,15 +121,15 @@ def convert_timezones(timestamp_string, timezone_src, timezone_dest):
     return ts_dest, epoch
 
 
-def load_bitcoin_usd(file_name, bitcoin_USD=bitcoin_USD):
+def load_bitcoin_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
-    print("Loading Bitcoin USD...")
+    print(f"Loading '{file_name}'...")
     with open(file_name, mode='r') as file:
         bitcoin_csv = csv.reader(file)
         counter = -1
         for line in bitcoin_csv:
             if counter > 0:
-                bitcoin_USD[line[0]] = line[1:]
+                bitcoin[line[0]] = line[1:]
             counter += 1
         bitcoin_loaded = True
 
@@ -451,19 +460,19 @@ def process_transactions(config, html):
                 transaction_amount = line3[0]
                 transaction_amount_type = line3[1]
 
-                fmv_USD = 0.0
-                if str(transaction_epoch) in bitcoin_USD:
-                    btc_USD = bitcoin_USD[str(transaction_epoch)]
+                fmv_cur = 0.0
+                if str(transaction_epoch) in bitcoin:
+                    btc = bitcoin[str(transaction_epoch)]
                     #fmv_USD = (float(btc_USD[3])+float(btc_USD[4]))/2.0
-                    fmv_USD = float(btc_USD[2])
+                    fmv_cur = float(btc[2])
 
-                transaction_amount_USD = float(transaction_amount) * fmv_USD
+                transaction_amount_cur = float(transaction_amount) * fmv_cur
 
                 if transaction_type == "Withdraw":
                     totalBTCwithdrawn += float(transaction_amount)
                 elif len(line1) == 3:  # Miner Deposit
                     totalBTCmined += float(transaction_amount)
-                    totalBTCminedUSD += float(transaction_amount) * fmv_USD
+                    totalBTCminedUSD += float(transaction_amount) * fmv_cur
                     try:
                         minersBTCmined[miner_id] += float(transaction_amount)
                     except:
@@ -480,8 +489,8 @@ def process_transactions(config, html):
                 transaction.append(transaction_amount)
                 transaction.append(transaction_amount_type)
                 if bitcoin_loaded:
-                    transaction.append("$"+str(transaction_amount_USD))
-                    transaction.append("$"+str(fmv_USD))
+                    transaction.append(bitcoin_currancy+str(transaction_amount_cur))
+                    transaction.append(bitcoin_currancy+str(fmv_cur))
                 transactions.insert(0, transaction)
 
     if config["populategooglesheet"] and totalTransactions > 0:
@@ -494,7 +503,7 @@ def process_transactions(config, html):
         cells.append(Cell(row=row, col=7, value="Currency"))
         if bitcoin_loaded:
             cells.append(Cell(row=row, col=8, value="FMV"))
-            cells.append(Cell(row=row, col=9, value="BITCOIN"))
+            cells.append(Cell(row=row, col=9, value="Bitcoin"))
 
         row += 1
         for transaction in transactions:
@@ -547,13 +556,14 @@ def process_transactions(config, html):
 
         if not config["silentMode"]:
             print("")
-            print("Total Transactions    =", totalTransactions)
+            print("Total Transactions   =", totalTransactions)
             print("")
-            print("Total BTC Deposited   =", round(totalBTCdeposited, 8))
-            print("Total BTC Withdrawn   =", round(totalBTCwithdrawn, 8))
+            print("Total BTC Deposited  =", round(totalBTCdeposited, 8))
+            print("Total BTC Withdrawn  =", round(totalBTCwithdrawn, 8))
             print("")
-            print("Total BTC Mined       =", round(totalBTCmined, 8))
-            print("Total BTC Mined (USD) = $"+str(round(totalBTCminedUSD, 2)))
+            print("Total BTC Mined      =", round(totalBTCmined, 8))
+            if bitcoin_loaded:
+                print("Total BTC Mined Fiat = "+bitcoin_currancy+str(round(totalBTCminedUSD, 2)))
             print("")
             for miner in sorted(minersBTCmined.keys()):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
