@@ -11,12 +11,12 @@ Created on Mon Oct 25 19:28:42 2021
 from datetime import datetime
 import calendar
 from time import time, localtime, strftime, strptime, mktime, sleep
-import os
+import os, sys
 import csv
 import re
 from getpass import getpass as getpassword
-from sys import version_info as vinfo
-assert vinfo[0] == 3 and vinfo[1] > 5, "Python 3.6+ required."
+
+assert sys.version_info[0] == 3 and sys.version_info[1] > 5, "Python 3.6+ required."
 
 
 # (Required) external modules
@@ -61,12 +61,17 @@ except:
 
 default_timezone = "America/Toronto"
 configs = []
+args = {}
 bitcoin = {}
 bitcoin_loaded = False
 bitcoin_currancy = ""
 
 
 def main():
+    # Process Command Line Arguments
+    global args
+    args = process_command_arguments()
+    
     # Load Bitcoin Prices
     global bitcoin_currancy
     for year in ["2021", "2022", "2023"]:
@@ -86,8 +91,13 @@ def main():
         if os.path.exists("config"+file_number+".csv"):
             new_config = True
             config = {"new_config": True}
+            # Set defaults
             set_defaults(config, file_number)
+            # Load Config file
             load_config(config)
+            # Update with command line arguments
+            config.update(args)
+            # Push config
             configs.append(config)
 
     if new_config:
@@ -100,6 +110,7 @@ def main():
         config = {}
         set_defaults(config)
         load_config(config)
+        config.update(args)
         configs.append(config)
         html = load_transactions(config)
         process_transactions(config, html)
@@ -120,6 +131,31 @@ def convert_timezones(timestamp_string, timezone_src, timezone_dest):
 
     return ts_dest, epoch
 
+
+def process_command_arguments():
+    #print("Number of arguments:", len(sys.argv))
+    #print(sys.argv)    
+    cl_config = {}
+    for arg in sys.argv:
+        if len(arg)>1 and arg[0:2]=="--":
+            lines = arg[2:].split('=', 1)
+            if len(lines) < 2:
+                assert False, f"Argument '{lines}' not valid!"
+
+            if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
+                print("This platform does not support time zone changing!")
+                assert False, "Install 'pytz' module to fix..."
+
+            if lines[1] == "False":
+                cl_config[lines[0]] = False
+            elif lines[1] == "True":
+                cl_config[lines[0]] = True
+            else:
+                cl_config[lines[0]] = lines[1]
+    
+    #print(cl_config)
+    return cl_config
+    
 
 def load_bitcoin_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
@@ -226,7 +262,7 @@ def load_config(config):
 
                 if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
                     print("This platform does not support time zone changing!")
-                    print("Install 'pytz' module to fix...")
+                    assert False, "Install 'pytz' module to fix..."
 
                 if lines[1] == "False":
                     config[lines[0]] = False
@@ -418,6 +454,8 @@ def process_transactions(config, html):
 
         res = res.strip()
         res = res.splitlines()
+        
+        skip_transaction = False
         if len(res) == 3:
             date = res[1].split(" ")
             if len(date) == 5:
@@ -454,6 +492,10 @@ def process_transactions(config, html):
                 if tzsetDisabledInternal and not pytzDisabledInternal:
                     transaction_time, transaction_epoch = convert_timezones(
                         transaction_time+":00", default_timezone, config["timezone"])
+                
+                if "year" in config and transaction_time[0:4] != config["year"]:
+                    skip_transaction = True
+                    break
 
                 # Line 3
                 line3 = res[2].split(" ")
@@ -491,7 +533,9 @@ def process_transactions(config, html):
                 if bitcoin_loaded:
                     transaction.append(bitcoin_currancy+str(transaction_amount_cur))
                     transaction.append(bitcoin_currancy+str(fmv_cur))
-                transactions.insert(0, transaction)
+                
+                if not skip_transaction:
+                    transactions.insert(0, transaction)
 
     if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
