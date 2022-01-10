@@ -132,9 +132,7 @@ def convert_timezones(timestamp_string, timezone_src, timezone_dest):
     return ts_dest, epoch
 
 
-def process_command_arguments():
-    #print("Number of arguments:", len(sys.argv))
-    #print(sys.argv)    
+def process_command_arguments():   
     cl_config = {}
     for arg in sys.argv:
         if len(arg)>1 and arg[0:2]=="--":
@@ -153,7 +151,6 @@ def process_command_arguments():
             else:
                 cl_config[lines[0]] = lines[1]
     
-    #print(cl_config)
     return cl_config
     
 
@@ -256,8 +253,11 @@ def load_config(config):
         with open(config["configFile"], mode='r') as file:
             csvf = csv.reader(file)
             for lines in csvf:
-                if len(lines) < 2:
-                    assert False, 'Config file {config["configFile"]} corrupt'
+                llen = len(lines)
+                if llen == 0:
+                    break
+                if llen < 2:
+                    assert False, f"Config file {config['configFile']} corrupt"
                 #lines[1].replace('“','')
 
                 if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
