@@ -254,10 +254,12 @@ def load_config(config):
             csvf = csv.reader(file)
             for lines in csvf:
                 llen = len(lines)
-                if llen == 0:
+                if llen == 0 or (llen==1 and len(lines[0].strip(" \t")) == 0):
                     break
-                if llen < 2:
-                    assert False, f"Config file {config['configFile']} corrupt"
+                if llen == 1 and lines[0].strip(" \t")[0] == '#':
+                    break
+                if llen != 2:
+                    assert False, f"Config file {config['configFile']} corrupt!"
                 #lines[1].replace('“','')
 
                 if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
