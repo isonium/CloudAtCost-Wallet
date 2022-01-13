@@ -11,7 +11,8 @@ Created on Mon Oct 25 19:28:42 2021
 from datetime import datetime
 import calendar
 from time import time, localtime, strftime, strptime, mktime, sleep
-import os, sys
+import os
+import sys
 import csv
 import re
 from getpass import getpass as getpassword
@@ -71,14 +72,20 @@ def main():
     # Process Command Line Arguments
     global args
     args = process_command_arguments()
-    
+
     # Load Bitcoin Prices
     global bitcoin_currancy
-    for year in ["2021", "2022", "2023"]:
-        file_name = "Bitstamp_BTCUSD_"+year+"_minute.csv"
-        if os.path.exists(file_name):
-            load_bitcoin_usd(file_name)
-            bitcoin_currancy = "$"
+
+    file_name = "coinbasepro.csv"
+    if os.path.exists(file_name):
+        load_coinbasepro_usd(file_name)
+        bitcoin_currancy = "$"
+    if not bitcoin_loaded:
+        for year in ["2021", "2022", "2023"]:
+            file_name = "Bitstamp_BTCUSD_"+year+"_minute.csv"
+            if os.path.exists(file_name):
+                load_bitcoin_usd(file_name)
+                bitcoin_currancy = "$"
     if not bitcoin_loaded:
         for year in ["2021", "2022", "2023"]:
             file_name = "Bitstamp_BTCEUR_"+year+"_minute.csv"
@@ -132,10 +139,10 @@ def convert_timezones(timestamp_string, timezone_src, timezone_dest):
     return ts_dest, epoch
 
 
-def process_command_arguments():   
+def process_command_arguments():
     cl_config = {}
     for arg in sys.argv:
-        if len(arg)>1 and arg[0:2]=="--":
+        if len(arg) > 1 and arg[0:2] == "--":
             lines = arg[2:].split('=', 1)
             if len(lines) < 2:
                 assert False, f"Argument '{lines}' not valid!"
@@ -150,9 +157,9 @@ def process_command_arguments():
                 cl_config[lines[0]] = True
             else:
                 cl_config[lines[0]] = lines[1]
-    
+
     return cl_config
-    
+
 
 def load_bitcoin_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
@@ -164,6 +171,16 @@ def load_bitcoin_usd(file_name, bitcoin=bitcoin):
             if counter > 0:
                 bitcoin[line[0]] = line[1:]
             counter += 1
+        bitcoin_loaded = True
+
+
+def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
+    global bitcoin_loaded
+    print(f"Loading '{file_name}'...")
+    with open(file_name, mode='r') as file:
+        bitcoin_csv = csv.reader(file)
+        for line in bitcoin_csv:
+            bitcoin[line[0]] = line[1:]
         bitcoin_loaded = True
 
 
@@ -254,7 +271,7 @@ def load_config(config):
             csvf = csv.reader(file)
             for lines in csvf:
                 llen = len(lines)
-                if llen == 0 or (llen==1 and len(lines[0].strip(" \t")) == 0):
+                if llen == 0 or (llen == 1 and len(lines[0].strip(" \t")) == 0):
                     break
                 if llen == 1 and lines[0].strip(" \t")[0] == '#':
                     break
@@ -456,8 +473,7 @@ def process_transactions(config, html):
 
         res = res.strip()
         res = res.splitlines()
-        
-        skip_transaction = False
+
         if len(res) == 3:
             date = res[1].split(" ")
             if len(date) == 5:
@@ -494,10 +510,9 @@ def process_transactions(config, html):
                 if tzsetDisabledInternal and not pytzDisabledInternal:
                     transaction_time, transaction_epoch = convert_timezones(
                         transaction_time+":00", default_timezone, config["timezone"])
-                
+
                 if "year" in config and transaction_time[0:4] != config["year"]:
-                    skip_transaction = True
-                    break
+                    continue
 
                 # Line 3
                 line3 = res[2].split(" ")
@@ -507,7 +522,7 @@ def process_transactions(config, html):
                 fmv_cur = 0.0
                 if str(transaction_epoch) in bitcoin:
                     btc = bitcoin[str(transaction_epoch)]
-                    #fmv_USD = (float(btc_USD[3])+float(btc_USD[4]))/2.0
+                    #fmv_cur = (float(btc_USD[3])+float(btc_USD[4]))/2.0
                     fmv_cur = float(btc[2])
 
                 transaction_amount_cur = float(transaction_amount) * fmv_cur
@@ -533,11 +548,11 @@ def process_transactions(config, html):
                 transaction.append(transaction_amount)
                 transaction.append(transaction_amount_type)
                 if bitcoin_loaded:
-                    transaction.append(bitcoin_currancy+str(transaction_amount_cur))
+                    transaction.append(
+                        bitcoin_currancy+str(transaction_amount_cur))
                     transaction.append(bitcoin_currancy+str(fmv_cur))
-                
-                if not skip_transaction:
-                    transactions.insert(0, transaction)
+
+                transactions.insert(0, transaction)
 
     if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
@@ -609,7 +624,8 @@ def process_transactions(config, html):
             print("")
             print("Total BTC Mined      =", round(totalBTCmined, 8))
             if bitcoin_loaded:
-                print("Total BTC Mined Fiat = "+bitcoin_currancy+str(round(totalBTCminedUSD, 2)))
+                print("Total BTC Mined Fiat = "+bitcoin_currancy +
+                      str(round(totalBTCminedUSD, 2)))
             print("")
             for miner in sorted(minersBTCmined.keys()):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
