@@ -8,7 +8,7 @@ Created on Mon Oct 25 19:28:42 2021
 @license: see MIT license
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 from time import time, localtime, strftime, strptime, mktime, sleep
 import os
@@ -59,6 +59,13 @@ try:
 except:
     gspredDisabledInternal = True
 
+try:
+    import coinbasepro as cbp
+    cbpDisabledInternal = False
+    cbp_client = cbp.PublicClient()
+except:
+    cbpDisabledInternal = True
+
 
 default_timezone = "America/Toronto"
 configs = []
@@ -77,8 +84,8 @@ def main():
     global bitcoin_currancy
 
     file_name = "coinbasepro.csv"
-    if os.path.exists(file_name):
-        load_coinbasepro_usd(file_name)
+    if not cbpDisabledInternal and os.path.exists(file_name):
+        update_coinbasepro_usd(file_name)
         bitcoin_currancy = "$"
     if not bitcoin_loaded:
         for year in ["2021", "2022", "2023"]:
@@ -181,7 +188,45 @@ def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
         bitcoin_csv = csv.reader(file)
         for line in bitcoin_csv:
             bitcoin[line[0]] = line[1:]
+            last = line
         bitcoin_loaded = True
+        return last
+
+
+def update_coinbasepro_usd(file_name, bitcoin=bitcoin):
+    last = load_coinbasepro_usd(file_name, bitcoin)
+    
+    print(f"Updating '{file_name}'...")
+    start = datetime.fromisoformat(last[1]) + timedelta(seconds=60)
+    end   = start + timedelta(minutes=299)
+    result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+    previous = []
+    sleep(0.34)
+    
+    while True:
+        start += timedelta(minutes=300)
+        end   += timedelta(minutes=300)
+        
+        previous = result
+        result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+    
+        if len(result)==0:
+            break
+        
+        result = result + previous
+        sleep(0.34)
+    
+    result = previous
+    result.reverse()
+    
+    with open("coinbasepro.csv", 'a') as f:
+        for x in range(0, len(result)-1):
+            timestamp = result[x]["time"].isoformat().replace("T", " ")
+            _, epoch = convert_timezones(timestamp, "UTC", "UTC")
+            bitcoin[str(epoch)] = [timestamp, 'BTC/USD', str(float(result[x]["open"])), str(float(result[x]["high"])), str(
+                float(result[x]["low"])), str(float(result[x]["close"])), str(float(result[x]["volume"]))]
+            f.write(str(epoch)+','+timestamp+','+'BTC/USD,'+str(float(result[x]["open"]))+','+str(float(result[x]["high"]))+','+str(
+                float(result[x]["low"]))+','+str(float(result[x]["close"]))+','+str(float(result[x]["volume"]))+"\n")
 
 
 def set_defaults(config, file_number=""):
