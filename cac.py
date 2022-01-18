@@ -636,8 +636,8 @@ def process_transactions(config, html):
             cells.append(Cell(row=row, col=6, value=transaction[3]))
             cells.append(Cell(row=row, col=7, value=transaction[6]))
             if bitcoin_loaded:
-                cells.append(Cell(row=row, col=8, value=transaction[8]))
-                cells.append(Cell(row=row, col=9, value=transaction[9]))
+                cells.append(Cell(row=row, col=8, value=transaction[7]))
+                cells.append(Cell(row=row, col=9, value=transaction[8]))
             row += 1
 
     if totalTransactions > 0:
