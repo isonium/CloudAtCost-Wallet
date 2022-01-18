@@ -152,7 +152,7 @@ def process_command_arguments():
         if len(arg) > 1 and arg[0:2] == "--":
             lines = arg[2:].split('=', 1)
             if len(lines) < 2:
-                assert False, f"Argument '{lines}' not valid!"
+                assert False, f"Argument '{arg}' not valid!"
 
             if tzsetDisabledInternal and pytzDisabledInternal and lines[0] == "timezone":
                 print("This platform does not support time zone changing!")
@@ -164,6 +164,13 @@ def process_command_arguments():
                 cl_config[lines[0]] = True
             else:
                 cl_config[lines[0]] = lines[1]
+                
+        elif len(arg) > 1 and arg[0] == "-":
+            if arg[1:] == "init-cbp":
+                bootstrap_coinbasepro_usd(file_name="coinbasepro.csv")
+                quit()
+            if arg[1:] == "exit":
+                quit()
 
     return cl_config
 
@@ -181,6 +188,12 @@ def load_bitcoin_usd(file_name, bitcoin=bitcoin):
         bitcoin_loaded = True
 
 
+def bootstrap_coinbasepro_usd(file_name="coinbasepro.csv"):
+    print(f"Initializing '{file_name}'...")
+    with open(file_name, "w") as f:
+        f.write("1609372800,2020-12-31 00:00:00,BTC/USD,28897.42,28934.56,28891.76,28934.56,10.46338356\n")
+
+
 def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
     print(f"Loading '{file_name}'...")
@@ -193,10 +206,10 @@ def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
         return last
 
 
-def update_coinbasepro_usd(file_name, bitcoin=bitcoin):
+def update_coinbasepro_usd(file_name="coinbasepro.csv", bitcoin=bitcoin):
     last = load_coinbasepro_usd(file_name, bitcoin)
     
-    print(f"Updating '{file_name}'...")
+    print(f"Updating '{file_name}'...", end='', flush=True)
     start = datetime.fromisoformat(last[1]) + timedelta(seconds=60)
     end   = start + timedelta(minutes=299)
     result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
@@ -215,11 +228,13 @@ def update_coinbasepro_usd(file_name, bitcoin=bitcoin):
         
         result = result + previous
         sleep(0.34)
+        print(".", end='', flush=True)
     
     result = previous
     result.reverse()
+    print("")
     
-    with open("coinbasepro.csv", 'a') as f:
+    with open(file_name, 'a') as f:
         for x in range(0, len(result)-1):
             timestamp = result[x]["time"].isoformat().replace("T", " ")
             _, epoch = convert_timezones(timestamp, "UTC", "UTC")
