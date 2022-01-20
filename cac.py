@@ -168,9 +168,9 @@ def process_command_arguments():
         elif len(arg) > 1 and arg[0] == "-":
             if arg[1:] == "init-cbp":
                 bootstrap_coinbasepro_usd(file_name="coinbasepro.csv")
-                quit()
+                sys.exit()
             if arg[1:] == "exit":
-                quit()
+                sys.exit()
 
     return cl_config
 
@@ -192,7 +192,7 @@ def bootstrap_coinbasepro_usd(file_name="coinbasepro.csv"):
     print(f"Initializing '{file_name}'...")
     with open(file_name, "w") as f:
         f.write("1609372800,2020-12-31 00:00:00,BTC/USD,28897.42,28934.56,28891.76,28934.56,10.46338356\n")
-
+    update_coinbasepro_usd(file_name)
 
 def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
@@ -212,22 +212,33 @@ def update_coinbasepro_usd(file_name="coinbasepro.csv", bitcoin=bitcoin):
     print(f"Updating '{file_name}'...", end='', flush=True)
     start = datetime.fromisoformat(last[1]) + timedelta(seconds=60)
     end   = start + timedelta(minutes=299)
-    result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
-    previous = []
-    sleep(0.34)
     
-    while True:
+    try:
+        result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+    except:
+        print()
+        print("Warning: Unable to download from Coinbase Pro", end="")
+        result = []
+        
+    previous = []
+    
+    while len(result) > 0:
+        sleep(0.34)
         start += timedelta(minutes=300)
         end   += timedelta(minutes=300)
         
         previous = result
-        result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+        try:
+            result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+        except:
+            print()
+            print("Warning: Disconnected from Coinbase Pro", end="")
+            result = []
     
         if len(result)==0:
             break
         
         result = result + previous
-        sleep(0.34)
         print(".", end='', flush=True)
     
     result = previous
