@@ -146,6 +146,10 @@ def convert_timezones(timestamp_string, timezone_src, timezone_dest):
     return ts_dest, epoch
 
 
+def get_epoch_from_utc(timestamp_string):
+    return int(datetime.fromisoformat(timestamp_string+"+00:00").timestamp())
+
+
 def process_command_arguments():
     cl_config = {}
     for arg in sys.argv:
@@ -164,7 +168,7 @@ def process_command_arguments():
                 cl_config[lines[0]] = True
             else:
                 cl_config[lines[0]] = lines[1]
-                
+
         elif len(arg) > 1 and arg[0] == "-":
             if arg[1:] == "init-cbp":
                 bootstrap_coinbasepro_usd(file_name="coinbasepro.csv")
@@ -191,8 +195,10 @@ def load_bitcoin_usd(file_name, bitcoin=bitcoin):
 def bootstrap_coinbasepro_usd(file_name="coinbasepro.csv"):
     print(f"Initializing '{file_name}'...")
     with open(file_name, "w") as f:
-        f.write("1609372800,2020-12-31 00:00:00,BTC/USD,28897.42,28934.56,28891.76,28934.56,10.46338356\n")
+        f.write(
+            "1609372800,2020-12-31 00:00:00,BTC/USD,28897.42,28934.56,28891.76,28934.56,10.46338356\n")
     update_coinbasepro_usd(file_name)
+
 
 def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
@@ -208,47 +214,52 @@ def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
 
 def update_coinbasepro_usd(file_name="coinbasepro.csv", bitcoin=bitcoin):
     last = load_coinbasepro_usd(file_name, bitcoin)
-    
+
     print(f"Updating '{file_name}'...", end='', flush=True)
     start = datetime.fromisoformat(last[1]) + timedelta(seconds=60)
-    end   = start + timedelta(minutes=299)
-    
+    end = start + timedelta(minutes=299)
+
     try:
-        result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+        result = cbp_client.get_product_historic_rates(
+            "BTC-USD", start.isoformat(), end.isoformat())
     except:
         print()
         print("Warning: Unable to download from Coinbase Pro", end="")
         result = []
-        
+
     previous = []
-    
+
     while len(result) > 0:
         sleep(0.34)
+        print(".", end='', flush=True)
+
         start += timedelta(minutes=300)
-        end   += timedelta(minutes=300)
-        
+        end += timedelta(minutes=300)
+
         previous = result
         try:
-            result = cbp_client.get_product_historic_rates("BTC-USD", start.isoformat(), end.isoformat())
+            result = cbp_client.get_product_historic_rates(
+                "BTC-USD", start.isoformat(), end.isoformat())
         except:
             print()
             print("Warning: Disconnected from Coinbase Pro", end="")
             result = []
-    
-        if len(result)==0:
+
+        if len(result) == 0:
             break
-        
+
         result = result + previous
-        print(".", end='', flush=True)
-    
+
     result = previous
     result.reverse()
-    print("")
-    
+    print("loaded", len(result)-1, "records.")
+    #print("")
+
     with open(file_name, 'a') as f:
         for x in range(0, len(result)-1):
             timestamp = result[x]["time"].isoformat().replace("T", " ")
-            _, epoch = convert_timezones(timestamp, "UTC", "UTC")
+            #_, epoch = convert_timezones(timestamp, "UTC", "UTC")
+            epoch = get_epoch_from_utc(timestamp)
             bitcoin[str(epoch)] = [timestamp, 'BTC/USD', str(float(result[x]["open"])), str(float(result[x]["high"])), str(
                 float(result[x]["low"])), str(float(result[x]["close"])), str(float(result[x]["volume"]))]
             f.write(str(epoch)+','+timestamp+','+'BTC/USD,'+str(float(result[x]["open"]))+','+str(float(result[x]["high"]))+','+str(
