@@ -9,15 +9,15 @@ Created on Mon Oct 25 19:28:42 2021
 """
 
 from datetime import datetime, timedelta
-import calendar
 from time import time, localtime, strftime, strptime, mktime, sleep
-import os
-import sys
-import csv
-import re
+from os import environ, unlink
+from os.path import basename, exists, getmtime
+from sys import argv, exit, version_info
+from csv import reader as csvreader
+from re import sub
 from getpass import getpass as getpassword
 
-assert sys.version_info[0] == 3 and sys.version_info[1] > 5, "Python 3.6+ required."
+assert version_info >= (3, 6), "Python 3.6+ required."
 
 
 # (Required) external modules
@@ -36,7 +36,7 @@ except:
     tzsetDisabledInternal = True
 
 try:
-    import pytz
+    from pytz import timezone as pytz_timezone
     pytzDisabledInternal = False
 except:
     pytzDisabledInternal = True
@@ -44,7 +44,7 @@ except:
 
 # (Optional) 2FA Support
 try:
-    import pyotp
+    from pyotp import TOTP
     pyotpDisabledInternal = False
 except:
     pyotpDisabledInternal = True
@@ -52,17 +52,16 @@ except:
 
 # (Optional) Google Sheets Support
 try:
-    import gspread
-    from gspread import Cell
+    from gspread import authorize, Cell
     from google.oauth2 import service_account
     gspredDisabledInternal = False
 except:
     gspredDisabledInternal = True
 
 try:
-    import coinbasepro as cbp
+    from coinbasepro import PublicClient
     cbpDisabledInternal = False
-    cbp_client = cbp.PublicClient()
+    cbp_client = PublicClient()
 except:
     cbpDisabledInternal = True
 
@@ -84,25 +83,28 @@ def main():
     global bitcoin_currancy
 
     file_name = "coinbasepro.csv"
-    if not cbpDisabledInternal and os.path.exists(file_name):
+    if not cbpDisabledInternal and exists(file_name):
         update_coinbasepro_usd(file_name)
         bitcoin_currancy = "$"
+        
     if not bitcoin_loaded:
         for year in ["2021", "2022", "2023"]:
             file_name = "Bitstamp_BTCUSD_"+year+"_minute.csv"
-            if os.path.exists(file_name):
+            if exists(file_name):
                 load_bitcoin_usd(file_name)
                 bitcoin_currancy = "$"
+                
     if not bitcoin_loaded:
         for year in ["2021", "2022", "2023"]:
             file_name = "Bitstamp_BTCEUR_"+year+"_minute.csv"
-            if os.path.exists(file_name):
+            if exists(file_name):
                 load_bitcoin_usd(file_name)
                 bitcoin_currancy = "€"
 
+    # Check if using multiple configs
     new_config = False
     for file_number in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-        if os.path.exists("config"+file_number+".csv"):
+        if exists("config"+file_number+".csv"):
             new_config = True
             config = {"new_config": True}
             # Set defaults
@@ -118,41 +120,49 @@ def main():
         for config in configs:
             if not config["silentMode"]:
                 print("Config file", config["configFile"], "loaded...")
-            html = load_transactions(config)
-            process_transactions(config, html)
+                
+            if config["cache"] == True and exists(config["cacheFile"]):
+                with open(config["cacheFile"], "r") as htmlFile:
+                    process_transactions(config, htmlFile)
+            else:
+                html = load_transactions(config)
+                process_transactions(config, html)
     else:
         config = {}
         set_defaults(config)
         load_config(config)
         config.update(args)
         configs.append(config)
-        html = load_transactions(config)
-        process_transactions(config, html)
-
-
-def convert_timezones(timestamp_string, timezone_src, timezone_dest):
-    local_tz = pytz.timezone(timezone_src)
-    dest_tz = pytz.timezone(timezone_dest)
-    UTC_tz = pytz.timezone("UTC")
-    ts = datetime.strptime(timestamp_string, '%Y-%m-%d %H:%M:%S')
-    ts = local_tz.localize(ts)
-    tz_dest = ts.astimezone(dest_tz)
-    ts_dest = str(tz_dest)
-    ts_dest = ts_dest[0:19]+" "+tz_dest.tzname()+ts_dest[19:]
-    ts_UTC = str(ts.astimezone(UTC_tz))[0:19]
-    timestamp = datetime.strptime(ts_UTC, '%Y-%m-%d %H:%M:%S')
-    epoch = int(calendar.timegm(timestamp.utctimetuple()))
-
-    return ts_dest, epoch
+        if config["cache"] == True and exists(config["cacheFile"]):
+            with open(config["cacheFile"], "r") as htmlFile:
+                process_transactions(config, htmlFile)
+        else:
+            html = load_transactions(config)
+            process_transactions(config, html)
 
 
 def get_epoch_from_utc(timestamp_string):
     return int(datetime.fromisoformat(timestamp_string+"+00:00").timestamp())
 
 
+def convert_timezones(timestamp_string, timezone_src, timezone_dest):
+    local_tz = pytz_timezone(timezone_src)
+    dest_tz = pytz_timezone(timezone_dest)
+    ts = datetime.strptime(timestamp_string, '%Y-%m-%d %H:%M:%S')
+    ts = local_tz.localize(ts)
+    tz_dest = ts.astimezone(dest_tz)
+    ts_dest = str(tz_dest)
+    ts_dest = ts_dest[0:19]+" "+tz_dest.tzname()+ts_dest[19:]
+    
+    UTC_tz = pytz_timezone("UTC")
+    epoch = get_epoch_from_utc(str(ts.astimezone(UTC_tz))[0:19])
+    
+    return ts_dest, epoch
+
+
 def process_command_arguments():
     cl_config = {}
-    for arg in sys.argv:
+    for arg in argv:
         if len(arg) > 1 and arg[0:2] == "--":
             lines = arg[2:].split('=', 1)
             if len(lines) < 2:
@@ -172,9 +182,9 @@ def process_command_arguments():
         elif len(arg) > 1 and arg[0] == "-":
             if arg[1:] == "init-cbp":
                 bootstrap_coinbasepro_usd(file_name="coinbasepro.csv")
-                sys.exit()
+                exit()
             if arg[1:] == "exit":
-                sys.exit()
+                exit()
 
     return cl_config
 
@@ -183,7 +193,7 @@ def load_bitcoin_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
     print(f"Loading '{file_name}'...")
     with open(file_name, mode='r') as file:
-        bitcoin_csv = csv.reader(file)
+        bitcoin_csv = csvreader(file)
         counter = -1
         for line in bitcoin_csv:
             if counter > 0:
@@ -204,7 +214,7 @@ def load_coinbasepro_usd(file_name, bitcoin=bitcoin):
     global bitcoin_loaded
     print(f"Loading '{file_name}'...")
     with open(file_name, mode='r') as file:
-        bitcoin_csv = csv.reader(file)
+        bitcoin_csv = csvreader(file)
         for line in bitcoin_csv:
             bitcoin[line[0]] = line[1:]
             last = line
@@ -258,7 +268,6 @@ def update_coinbasepro_usd(file_name="coinbasepro.csv", bitcoin=bitcoin):
     with open(file_name, 'a') as f:
         for x in range(0, len(result)-1):
             timestamp = result[x]["time"].isoformat().replace("T", " ")
-            #_, epoch = convert_timezones(timestamp, "UTC", "UTC")
             epoch = get_epoch_from_utc(timestamp)
             bitcoin[str(epoch)] = [timestamp, 'BTC/USD', str(float(result[x]["open"])), str(float(result[x]["high"])), str(
                 float(result[x]["low"])), str(float(result[x]["close"])), str(float(result[x]["volume"]))]
@@ -267,7 +276,10 @@ def update_coinbasepro_usd(file_name="coinbasepro.csv", bitcoin=bitcoin):
 
 
 def set_defaults(config, file_number=""):
-    config["pythonScriptName"] = os.path.basename(__file__).lower()
+    
+    config["cache"] = False
+    
+    config["pythonScriptName"] = basename(__file__).lower()
 
     config["timezone"] = default_timezone
 
@@ -318,9 +330,11 @@ def set_defaults(config, file_number=""):
     if file_number == "":
         config["configFile"] = config["prefix"]+"-config"+".csv"
         config["cookieFile"] = config["prefix"]+"-cookie"+".bin"
+        config["cacheFile"]  = config["prefix"]+"-cache"+".bin"
     else:
         config["configFile"] = "config"+file_number+".csv"
         config["cookieFile"] = "cookie"+file_number+".bin"
+        config["cacheFile"]  = "cache"+file_number+".bin"
 
     if config["addDateTime"]:
         config["summaryHtmlFile"] = "Summary "+config["datetime"]+".html"
@@ -339,10 +353,10 @@ def load_config(config):
     # Delete cookies file if config file was modified
     config["configModified"] = False
     try:
-        configTime = os.path.getmtime(config["configFile"])
-        cookieTime = os.path.getmtime(config["cookieFile"])
+        configTime = getmtime(config["configFile"])
+        cookieTime = getmtime(config["cookieFile"])
         if configTime > cookieTime:
-            os.unlink(config["cookieFile"])
+            unlink(config["cookieFile"])
             config["configModified"] = True
     except:
         pass
@@ -350,7 +364,7 @@ def load_config(config):
     # Load configFile, if available
     try:
         with open(config["configFile"], mode='r') as file:
-            csvf = csv.reader(file)
+            csvf = csvreader(file)
             for lines in csvf:
                 llen = len(lines)
                 if llen == 0 or (llen == 1 and len(lines[0].strip(" \t")) == 0):
@@ -393,7 +407,7 @@ def load_config(config):
         if pyotpDisabledInternal:
             assert False, "Python 'pyotp' module not installed!"
         else:
-            config["totp"] = pyotp.TOTP(config["auth_2fa"])
+            config["totp"] = TOTP(config["auth_2fa"])
 
     if "saveFilePrefix" in config:
         config["summaryHtmlFile"] = config["saveFilePrefix"] + \
@@ -518,6 +532,10 @@ def load_transactions(config):
             print("Saving HTML", config["transactionHtmlFile"])
         save_html(config["transactionHtmlFile"])
 
+    if exists(config["cacheFile"]):
+        unlink(config["cacheFile"])
+        save_html(config["cacheFile"])
+
     if not config["interactive"] or config["useCookies"]:
         if not config["silentMode"]:
             print("Saving Cookies...")
@@ -535,6 +553,7 @@ def process_transactions(config, html):
 
     transactions = []
     totalTransactions = 0
+    selectedTransactions = 0
     totalBTCdeposited = 0.0
     totalBTCwithdrawn = 0.0
     totalBTCmined = 0.0
@@ -549,9 +568,9 @@ def process_transactions(config, html):
         row += 1
 
     for link in soup.find_all("a")[::-1]:
-        res = re.sub('(\t| )+', ' ', link.text)
-        res = re.sub('\n+', '\n', res)
-        res = re.sub(' 0.', "0.", res)
+        res = sub('(\t| )+', ' ', link.text)
+        res = sub('\n+', '\n', res)
+        res = sub(' 0.', "0.", res)
 
         res = res.strip()
         res = res.splitlines()
@@ -572,7 +591,7 @@ def process_transactions(config, html):
 
                 # Line 2
                 if not tzsetDisabledInternal:
-                    os.environ['TZ'] = default_timezone
+                    environ['TZ'] = default_timezone
                     tzset()
                 ttime = strptime(res[1], "%b %d, %Y %I:%M %p")
 
@@ -582,7 +601,7 @@ def process_transactions(config, html):
                 date_time_fmt = "%Y-%m-%d %H:%M"
 
                 if not tzsetDisabledInternal:
-                    os.environ['TZ'] = config["timezone"]
+                    environ['TZ'] = config["timezone"]
                     tzset()
                     date_time_fmt = "%Y-%m-%d %H:%M %Z%z"
 
@@ -595,6 +614,11 @@ def process_transactions(config, html):
 
                 if "year" in config and transaction_time[0:4] != config["year"]:
                     continue
+                
+                if "select" in config and transaction_time[0:len(config["select"])] != config["select"]:
+                    continue
+                
+                selectedTransactions += 1
 
                 # Line 3
                 line3 = res[2].split(" ")
@@ -662,7 +686,7 @@ def process_transactions(config, html):
                 cells.append(Cell(row=row, col=9, value=transaction[8]))
             row += 1
 
-    if totalTransactions > 0:
+    if totalTransactions > 0 and selectedTransactions > 0:
         if config["saveCSV"]:
             if not config["silentMode"]:
                 print("Saving '"+config["csvFile"]+"'")
@@ -676,7 +700,7 @@ def process_transactions(config, html):
                         "Epoch, Transaction, Date, Type, Miner ID, Amount, Currency\n")
 
                 for transaction in transactions:
-                    f.write(re.sub("'", '', str(transaction)[1:-1])+"\n")
+                    f.write(sub("'", '', str(transaction)[1:-1])+"\n")
 
         if config["populategooglesheet"]:
             if not config["silentMode"]:
@@ -686,12 +710,12 @@ def process_transactions(config, html):
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets',
                      'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
 
-            if not os.path.exists(config["googleCreds"]):
+            if not exists(config["googleCreds"]):
                 assert False, "Google service account credentials file not found (" + \
                     config["googleCreds"]+")"
             creds = service_account.Credentials.from_service_account_file(
                 config["googleCreds"], scopes=scope)
-            client = gspread.authorize(creds)
+            client = authorize(creds)
             sheet = client.open(config["googleSheet"])  # the spreadhseet name
             # the worksheet name (in the spreadsheet above)
             wksheet = sheet.worksheet(config["googleWorksheet"])
@@ -699,16 +723,19 @@ def process_transactions(config, html):
 
         if not config["silentMode"]:
             print("")
-            print("Total Transactions   =", totalTransactions)
+            print("Total Transactions    =", totalTransactions)
+            if totalTransactions != selectedTransactions:
+                print("Selected Transactions =", selectedTransactions)
             print("")
-            print("Total BTC Deposited  =", round(totalBTCdeposited, 8))
-            print("Total BTC Withdrawn  =", round(totalBTCwithdrawn, 8))
+            print(f"Total BTC Deposited   = {totalBTCdeposited:.8f}")
+            print(f"Total BTC Withdrawn   = {totalBTCwithdrawn:.8f}")
             print("")
-            print("Total BTC Mined      =", round(totalBTCmined, 8))
+            print(f"Total BTC Mined       = {totalBTCmined:.8f}")
+
             if bitcoin_loaded:
-                print("Total BTC Mined Fiat = "+bitcoin_currancy +
-                      str(round(totalBTCminedUSD, 2)))
+                print(f"Total BTC Mined Fiat  = {bitcoin_currancy}{totalBTCminedUSD:.2f}")
             print("")
+            
             for miner in sorted(minersBTCmined.keys()):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
             print("")
