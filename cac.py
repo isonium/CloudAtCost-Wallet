@@ -186,6 +186,17 @@ def process_command_arguments():
             if arg[1:] == "exit":
                 exit()
 
+    """
+    for cla in cl_config:
+        try:
+            if ',' in cl_config[cla]:
+                cl_config[cla] = cl_config[cla].split(',')
+        except:
+            pass
+    
+    print(cl_config)
+    """
+    
     return cl_config
 
 
@@ -588,6 +599,25 @@ def process_transactions(config, html):
                 transaction_type = line1[0]
                 if len(line1) == 3:
                     miner_id = int(line1[2][0:-1])
+                
+                def multi_filer_equal(config, item, compare, full=False):
+                    if item in config:
+                        cont = True
+                        for each in config[item].split(','):
+                            if full:
+                                if each == compare:
+                                    cont = False
+                                    break
+                            else:
+                                if each == compare[:len(each)]:
+                                    cont = False
+                                    break
+                        return cont
+                    return False
+                
+                # Miner exclusion code
+                if multi_filer_equal(config, "miner", str(miner_id), True):
+                    continue
 
                 # Line 2
                 if not tzsetDisabledInternal:
@@ -612,10 +642,14 @@ def process_transactions(config, html):
                     transaction_time, transaction_epoch = convert_timezones(
                         transaction_time+":00", default_timezone, config["timezone"])
 
+                # Transaction exclusion code
                 if "year" in config and transaction_time[0:4] != config["year"]:
                     continue
                 
-                if "select" in config and transaction_time[0:len(config["select"])] != config["select"]:
+                if multi_filer_equal(config, "select", transaction_time):
+                    continue
+                
+                if "exclude" in config and transaction_time[0:len(config["exclude"])] == config["exclude"]:
                     continue
                 
                 selectedTransactions += 1
@@ -663,7 +697,7 @@ def process_transactions(config, html):
     if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
         cells.append(Cell(row=row, col=2, value="Epoch"))
-        cells.append(Cell(row=row, col=3, value="Transcation"))
+        cells.append(Cell(row=row, col=3, value="Transaction"))
         cells.append(Cell(row=row, col=4, value="Amount"))
         cells.append(Cell(row=row, col=5, value="Date"))
         cells.append(Cell(row=row, col=6, value="Type"))
@@ -740,7 +774,7 @@ def process_transactions(config, html):
                 print(f'Miner {miner} = {minersBTCmined[miner]:.8f} BTC')
             print("")
     elif not config["silentMode"]:
-        print("No Transactions!")
+        print("No Transactions!\n")
 
 
 if __name__ == "__main__":
