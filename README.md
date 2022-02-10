@@ -20,7 +20,7 @@ Known Issues:
 Google Sheet option pushes the transactions into a google sheet configured in the config file.  Steps to configure include:
 1) Create a Google Sheet - add the name of the sheet in the config file  (A template is available here - make your own copy: https://docs.google.com/spreadsheets/d/1h4JxIX4Or2CQmbV4vrImq7lNPrL6R_tLICReW4aVPHE/edit?usp=sharing)
 2) Create a worksheet within the Google Sheet - add the name of the worksheet to the config file (default is Sheet1)
-3) Create a google Service Account (hhttps://www.webdavsystem.com/server/gsuite/service-account/)
+3) Create a google Service Account (https://www.webdavsystem.com/server/gsuite/service-account/)
 4) Download the private key JSON file and save in the code folder as "google_creds.json"
 4) Within the Google Sheet that was created in Step 1, "Share" the google sheet with the email address of the service account created in step 3
 
