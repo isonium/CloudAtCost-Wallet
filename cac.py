@@ -663,7 +663,7 @@ def process_transactions(config, html):
     if config["populategooglesheet"] and totalTransactions > 0:
         cells.append(Cell(row=row, col=1, value="Miner ID"))
         cells.append(Cell(row=row, col=2, value="Epoch"))
-        cells.append(Cell(row=row, col=3, value="Transcation"))
+        cells.append(Cell(row=row, col=3, value="Transaction"))
         cells.append(Cell(row=row, col=4, value="Amount"))
         cells.append(Cell(row=row, col=5, value="Date"))
         cells.append(Cell(row=row, col=6, value="Type"))
