@@ -102,8 +102,11 @@ def main():
                 bitcoin_currancy = "€"
 
     # Check if using multiple configs
+    validConfigs = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    if "config" in args:
+        validConfigs = args["config"]
     new_config = False
-    for file_number in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+    for file_number in validConfigs:
         if exists("config"+file_number+".csv"):
             new_config = True
             config = {"new_config": True}
@@ -349,11 +352,13 @@ def set_defaults(config, file_number=""):
 
     if config["addDateTime"]:
         config["summaryHtmlFile"] = "Summary "+config["datetime"]+".html"
+        config["walletHtmlFile"] = "Wallet " + config["datetime"]+".html"
         config["transactionHtmlFile"] = "Transactions " + \
             config["datetime"]+".html"
         config["csvFile"] = "Transactions "+config["datetime"]+".csv"
     else:
         config["summaryHtmlFile"] = "Summary.html"
+        config["walletHtmlFile"] = "Wallet.html"
         config["transactionHtmlFile"] = "Transactions.html"
         config["csvFile"] = "Transactions.csv"
 
@@ -423,12 +428,16 @@ def load_config(config):
     if "saveFilePrefix" in config:
         config["summaryHtmlFile"] = config["saveFilePrefix"] + \
             config["summaryHtmlFile"]
+        config["walletHtmlFile"] = config["saveFilePrefix"] + \
+            config["walletHtmlFile"]
         config["transactionHtmlFile"] = config["saveFilePrefix"] + \
             config["transactionHtmlFile"]
         config["csvFile"] = config["saveFilePrefix"] + config["csvFile"]
     elif "new_config" in config and config["file_number"] != "":
         config["summaryHtmlFile"] = config["file_number"] + \
             " " + config["summaryHtmlFile"]
+        config["walletHtmlFile"] = config["file_number"] + \
+            " " + config["walletHtmlFile"]
         config["transactionHtmlFile"] = config["file_number"] + \
             " " + config["transactionHtmlFile"]
         config["csvFile"] = config["file_number"] + " " + config["csvFile"]
@@ -529,9 +538,19 @@ def load_transactions(config):
             print("Saving HTML", config["summaryHtmlFile"])
         save_html(config["summaryHtmlFile"])
 
-    #print("Loading Wallet...")
-    #go(walletURL)
-
+    # Load and save Wallet if saving HTML files
+    if config["saveHTML"]:
+        if not config["silentMode"]:
+            print("Loading Wallet...")
+    
+        go(config["walletURL"])
+        assert browser.code == 200, "Failed to Load Wallet"
+    
+        if not config["silentMode"]:
+            print("Saving HTML", config["walletHtmlFile"])
+        save_html(config["walletHtmlFile"])
+        
+    # Load Transactions
     if not config["silentMode"]:
         print("Loading Transactions...")
 
@@ -613,6 +632,11 @@ def process_transactions(config, html):
                                     cont = False
                                     break
                         return cont
+                    return False
+                
+                def multi_filer_not_equal(config, item, compare, full=False):
+                    if item in config:
+                        return not multi_filer_equal(config, item, compare, full)
                     return False
                 
                 # Miner exclusion code
