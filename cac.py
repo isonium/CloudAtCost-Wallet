@@ -17,7 +17,7 @@ from csv import reader as csvreader
 from re import sub
 from getpass import getpass as getpassword
 
-assert version_info >= (3, 6), "Python 3.6+ required."
+assert version_info >= (3, 7), "Python 3.7+ required."
 
 
 # (Required) external modules
@@ -312,7 +312,8 @@ def set_defaults(config, file_number=""):
     config["loginURL"] = config["baseURL"]+"login"
     config["auth_2faURL"] = config["baseURL"]+"auth"
     config["walletURL"] = config["baseURL"]+"wallet"
-    config["transactionURL"] = config["baseURL"]+"transaction"
+    #config["transactionURL"] = config["baseURL"]+"transaction"
+    config["transactionURL"] = config["baseURL"]+"transaction/btc"
 
     ltime = localtime(time())
     config["datetime"] = strftime("%Y-%m-%d %H-%M", ltime)
