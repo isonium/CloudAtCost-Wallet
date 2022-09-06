@@ -306,13 +306,13 @@ def set_defaults(config, file_number=""):
         config["baseURL"] = "https://wallet.swivel.run/"
         config["prefix"] = "swi"
     else:
-        config["baseURL"] = "https://wallet.cloudatcost.com/"
+        config["baseURL"] = "https://wallet.cryptoatcost.com/"
         config["prefix"] = "cac"
 
     config["loginURL"] = config["baseURL"]+"login"
     config["auth_2faURL"] = config["baseURL"]+"auth"
     config["walletURL"] = config["baseURL"]+"wallet"
-    #config["transactionURL"] = config["baseURL"]+"transaction"
+    # Added /btc but all transactions button doesn't work
     config["transactionURL"] = config["baseURL"]+"transaction/btc"
 
     ltime = localtime(time())
@@ -474,7 +474,12 @@ def load_transactions(config):
             if not config["silentMode"]:
                 print("Accessing", config["baseURL"])
             go(config["baseURL"])
-
+        
+        if len(browser.url) >=39 and browser.url[0:39] == "https://wallet.cryptoatcost.com/support":
+            if not config["silentMode"]:
+                print("Dismissing Support Notice...")
+            go("https://wallet.cryptoatcost.com/wallet")
+            
         if browser.code == 200 and browser.url == config["loginURL"]:
             assert browser.forms != [], "Login Form Missing!"
             if config["interactive"]:
